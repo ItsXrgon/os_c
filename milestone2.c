@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 
 #define MEMORY_SIZE 60
@@ -128,7 +130,7 @@ void destroy_process(struct pcb *process)
 {
     process->pid = -1;
     process->priority = -1;
-    process->state = "DEAD";
+    strcpy(process->state, "DEAD");
     process->program_counter = -1;
 }
 
@@ -144,10 +146,57 @@ void add_to_queue(struct pcb *process, struct pcb *queue)
     }
 }
 
-int main()
-{
-    struct memory_data memory;
+void execute_program(const char *filename, struct memory_data *memory, int *semaphore, int *mutex, int *waitCount) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Error opening file %s\n", filename);
+        return;
+    }
 
-    printf("Hello world");
+    char line[100];
+    while (fgets(line, sizeof(line), file)) {
+        char *token = strtok(line, " ");
+        if (strcmp(token, "semWait") == 0) {
+            char *resource = strtok(NULL, " ");
+            sem_wait(semaphore, mutex, waitCount); // Pass appropriate arguments
+        } else if (strcmp(token, "assign") == 0) {
+            char *var = strtok(NULL, " ");
+            int val = atoi(strtok(NULL, " ")); // Convert value to integer
+            assign(var, &val); // Pass variable and value
+        } else if (strcmp(token, "writeFile") == 0) {
+            char *filename = strtok(NULL, " ");
+            char *data = strtok(NULL, " ");
+            write_file(filename, data); // Pass filename and data
+        } else if (strcmp(token, "readFile") == 0) {
+            char *filename = strtok(NULL, " ");
+            read_file(filename); // Pass filename
+        } else if (strcmp(token, "semSignal") == 0) {
+            char *resource = strtok(NULL, " ");
+            sem_signal(semaphore, mutex, waitCount); // Pass appropriate arguments
+        } else if (strcmp(token, "printFromTo") == 0) {
+            int start = atoi(strtok(NULL, " "));
+            int end = atoi(strtok(NULL, " "));
+            print_from_to(start, end); // Pass start and end values
+        } else if (strcmp(token, "print") == 0) {
+            char *var = strtok(NULL, " ");
+            print(var); // Pass variable to print
+        }
+    }
+
+    fclose(file);
+}
+
+int main() {
+    struct memory_data memory;
+    struct scheduler os_scheduler;
+
+    int semaphore = 0;
+    int mutex = 1;
+    int waitCount = 0;
+
+    execute_program("Program_1.txt", &memory, &semaphore, &mutex, &waitCount);
+    execute_program("Program_2.txt", &memory, &semaphore, &mutex, &waitCount);
+    execute_program("Program_3.txt", &memory, &semaphore, &mutex, &waitCount);
+
     return 0;
 }
