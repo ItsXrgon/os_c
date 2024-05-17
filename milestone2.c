@@ -2,201 +2,201 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #define MEMORY_SIZE 60
 #define PROCESS_VARS_SIZE 3
+#define NUM_PROCESSES 3
 
-struct pcb {
+enum State { READY, BLOCKED, RUNNING, DEAD };
+
+struct Process {
     int pid;
+    enum State state;
     int priority;
-    char *state;
     int program_counter;
     int memory_boundaries[2];
-};
-
-struct memory_data {
-    int memory_words[MEMORY_SIZE];
     int variables[PROCESS_VARS_SIZE];
-    struct pcb process_table[3];
 };
 
-struct scheduler { 
-    struct pcb queue1[3];
-    struct pcb queue2[3];
-    struct pcb queue3[3];
-    struct pcb queue4[3];
-    struct pcb blocked_queue[3];
+struct Memory {
+    char memory_words[MEMORY_SIZE][100];
+    struct Process process_table[NUM_PROCESSES];
 };
 
-void allocate_memory(struct pcb *process, int start_address) {
+struct Scheduler {
+    struct Process* queues[4][NUM_PROCESSES]; 
+    struct Process* blocked_queue[NUM_PROCESSES];
+};
+
+// Function prototypes
+void allocate_memory(struct Process* process, int start_address);
+void free_memory(struct Process* process);
+void add_to_queue(struct Process* process, struct Scheduler* scheduler);
+void sem_wait(int* semaphore, int* mutex, int* waitCount);
+void sem_signal(int* semaphore, int* mutex, int* waitCount);
+void write_file(char* filename, char* content);
+void read_file(char* filename);
+void print_from_to(int from, int to);
+void assign(char* variable, char* value) ; 
+void print(char* str);
+void execute_program(const char* filename, struct Memory* memory, struct Scheduler* scheduler);
+
+void allocate_memory(struct Process* process, int start_address) {
     process->memory_boundaries[0] = start_address;
-    process->memory_boundaries[1] = start_address + PROCESS_VARS_SIZE; 
+    process->memory_boundaries[1] = start_address + PROCESS_VARS_SIZE;
 }
 
-void free_memory(struct pcb *process) {
+void free_memory(struct Process* process) {
     process->memory_boundaries[0] = -1;
     process->memory_boundaries[1] = -1;
 }
 
-void print(char *str)
-{
-    printf("%s\n", str);
-}
-
-void assign(char *variable, int *variables)
-{
-    int value;
-    printf("Enter value: ");
-    scanf("%d", &value);
-
-    variables[variable[0] - 'A'] = value;
-}
-
-void write_file(char *filename, char *content)
-{
-    FILE *file = fopen(filename, "w");
-    if (file == NULL)
-    {
-        print("Error opening file");
-        return;
-    }
-    fprintf(file, "%s", content);
-    fclose(file);
-}
-
-void read_file(char *filename) {
-    FILE *file = fopen(filename, "r");
-    if (file == NULL)
-    {
-        print("Error opening file");
-        return;
-    }
-    char c;
-    while ((c = fgetc(file)) != EOF)
-    {
-        printf("%c", c);
-    }
-    fclose(file);
-}
-
-void print_from_to(int from, int to)
-{
-    for (int i = from; i <= to; i++)
-    {
-        printf("%d\n", i);
+void add_to_queue(struct Process* process, struct Scheduler* scheduler) {
+    
+    int priority = process->priority;
+    for (int i = 0; i < NUM_PROCESSES; i++) {
+        if (scheduler->queues[priority][i] == NULL) {
+            scheduler->queues[priority][i] = process;
+            break;
+        }
     }
 }
 
-void sem_wait(
-    int *semaphore,
-    int *mutex,
-    int *waitCount
-)
-{
+void sem_wait(int* semaphore, int* mutex, int* waitCount) {
     *waitCount = *waitCount + 1;
-    if (*waitCount <= 0)
-    {
+    if (*waitCount <= 0) {
         *mutex = 0;
-        while (*waitCount <= 0)
-        {
+        while (*waitCount <= 0) {
             // Do nothing
         }
         *mutex = 1;
     }
 }
 
-void sem_signal(
-    int *semaphore,
-    int *mutex,
-    int *waitCount
-)
-{
+void sem_signal(int* semaphore, int* mutex, int* waitCount) {
     *waitCount = *waitCount - 1;
-    if (*waitCount <= 0)
-    {
+    if (*waitCount <= 0) {
         *mutex = 1;
     }
 }
 
-void create_process(struct pcb *process, int pid, int priority, char *state, int program_counter)
-{
-    process->pid = pid;
-    process->priority = priority;
-    process->state = state;
-    process->program_counter = program_counter;
+void write_file(char* filename, char* content) {
+    FILE* file = fopen(filename, "w");
+    if (file == NULL) {
+        printf("Error opening file\n");
+        return;
+    }
+    fprintf(file, "%s", content);
+    fclose(file);
 }
 
-void destroy_process(struct pcb *process)
-{
-    process->pid = -1;
-    process->priority = -1;
-    strcpy(process->state, "DEAD");
-    process->program_counter = -1;
+void read_file(char* filename) {
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Error opening file\n");
+        return;
+    }
+    char c;
+    while ((c = fgetc(file)) != EOF) {
+        printf("%c", c);
+    }
+    fclose(file);
 }
 
-void add_to_queue(struct pcb *process, struct pcb *queue)
-{
-    for (int i = 0; i < 3; i++)
-    {
-        if (queue[i].pid == -1)
-        {
-            queue[i] = *process;
-            break;
-        }
+void print_from_to(int from, int to) {
+    for (int i = from; i <= to; i++) {
+        printf("%d\n", i);
     }
 }
 
-void execute_program(const char *filename, struct memory_data *memory, int *semaphore, int *mutex, int *waitCount) {
-    FILE *file = fopen(filename, "r");
+void assign(char* variable, char* value) { 
+    printf("Enter value for %s: ", variable);
+    scanf("%s", value); 
+}
+
+void print(char* str) {
+    printf("%s\n", str);
+}
+
+void execute_program(const char* filename, struct Memory* memory, struct Scheduler* scheduler) {
+    FILE* file = fopen(filename, "r");
     if (file == NULL) {
         printf("Error opening file %s\n", filename);
         return;
     }
 
     char line[100];
+    int semaphore = 0, mutex = 1, waitCount = 0; 
+    char file_name[100], file_data[100]; 
+    int val1, val2; 
+    int filename_read = 0;
     while (fgets(line, sizeof(line), file)) {
-        char *token = strtok(line, " ");
+        char* token = strtok(line, " ");
         if (strcmp(token, "semWait") == 0) {
-            char *resource = strtok(NULL, " ");
-            sem_wait(semaphore, mutex, waitCount); // Pass appropriate arguments
-        } else if (strcmp(token, "assign") == 0) {
-            char *var = strtok(NULL, " ");
-            int val = atoi(strtok(NULL, " ")); // Convert value to integer
-            assign(var, &val); // Pass variable and value
-        } else if (strcmp(token, "writeFile") == 0) {
-            char *filename = strtok(NULL, " ");
-            char *data = strtok(NULL, " ");
-            write_file(filename, data); // Pass filename and data
-        } else if (strcmp(token, "readFile") == 0) {
-            char *filename = strtok(NULL, " ");
-            read_file(filename); // Pass filename
-        } else if (strcmp(token, "semSignal") == 0) {
-            char *resource = strtok(NULL, " ");
-            sem_signal(semaphore, mutex, waitCount); // Pass appropriate arguments
-        } else if (strcmp(token, "printFromTo") == 0) {
-            int start = atoi(strtok(NULL, " "));
-            int end = atoi(strtok(NULL, " "));
-            print_from_to(start, end); // Pass start and end values
-        } else if (strcmp(token, "print") == 0) {
-            char *var = strtok(NULL, " ");
-            print(var); // Pass variable to print
+            char* resource = strtok(NULL, " ");
+            sem_wait(&semaphore, &mutex, &waitCount);
+        }
+        else if (strcmp(token, "assign") == 0) {
+             char* var = strtok(NULL, " ");
+              if (strcmp(var, "a") == 0)
+                 assign(var, &file_name[0]); 
+              else if (strcmp(var, "b") == 0)
+                 assign(var, &file_data[0]); 
+              else {
+                  printf("Invalid variable name\n");
+                  return;
+          }
+        }
+        else if (strcmp(token, "writeFile") == 0) {
+             write_file(file_name, file_data); 
+         }
+        else if (strcmp(token, "readFile") == 0) {
+             if (!filename_read) {
+                  assign("filename", &file_name[0]); 
+                 filename_read = 1;
+                 read_file(file_name);
+         } 
+            read_file(file_name); 
+         }
+         else if (strcmp(token, "semSignal") == 0) {
+              char* resource = strtok(NULL, " ");
+              sem_signal(&semaphore, &mutex, &waitCount);
+         }
+         else if (strcmp(token, "printFromTo") == 0) {
+              val1 = atoi(file_name); 
+              val2 = atoi(file_data);
+              print_from_to(val1, val2); 
+     }
+
+        else if (strcmp(token, "print") == 0) {
+            char* var = strtok(NULL, " ");
+            print(var);
         }
     }
 
     fclose(file);
 }
 
+
 int main() {
-    struct memory_data memory;
-    struct scheduler os_scheduler;
+    struct Memory memory;
+    struct Scheduler scheduler;
 
-    int semaphore = 0;
-    int mutex = 1;
-    int waitCount = 0;
+ 
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < NUM_PROCESSES; j++) {
+            scheduler.queues[i][j] = NULL;
+        }
+    }
+    for (int i = 0; i < NUM_PROCESSES; i++) {
+        scheduler.blocked_queue[i] = NULL;
+    }
 
-    execute_program("Program_1.txt", &memory, &semaphore, &mutex, &waitCount);
-    execute_program("Program_2.txt", &memory, &semaphore, &mutex, &waitCount);
-    execute_program("Program_3.txt", &memory, &semaphore, &mutex, &waitCount);
+   
+    execute_program("Program_1.txt", &memory, &scheduler);
+    execute_program("Program_2.txt", &memory, &scheduler);
+    execute_program("Program_3.txt", &memory, &scheduler);
+
+    
 
     return 0;
 }
