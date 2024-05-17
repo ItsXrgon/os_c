@@ -27,18 +27,6 @@ struct Scheduler {
     struct Process* blocked_queue[NUM_PROCESSES];
 };
 
-// Function prototypes
-void allocate_memory(struct Process* process, int start_address);
-void free_memory(struct Process* process);
-void add_to_queue(struct Process* process, struct Scheduler* scheduler);
-void sem_wait(int* semaphore, int* mutex, int* waitCount);
-void sem_signal(int* semaphore, int* mutex, int* waitCount);
-void write_file(char* filename, char* content);
-void read_file(char* filename);
-void print_from_to(int from, int to);
-void assign(char* variable, char* value) ; 
-void print(char* str);
-void execute_program(const char* filename, struct Memory* memory, struct Scheduler* scheduler);
 
 void allocate_memory(struct Process* process, int start_address) {
     process->memory_boundaries[0] = start_address;
@@ -80,12 +68,19 @@ void sem_signal(int* semaphore, int* mutex, int* waitCount) {
 }
 
 void write_file(char* filename, char* content) {
+
     FILE* file = fopen(filename, "w");
+
     if (file == NULL) {
+        
         printf("Error opening file\n");
+
         return;
+
     }
+
     fprintf(file, "%s", content);
+    
     fclose(file);
 }
 
@@ -118,58 +113,97 @@ void print(char* str) {
 }
 
 void execute_program(const char* filename, struct Memory* memory, struct Scheduler* scheduler) {
+
     FILE* file = fopen(filename, "r");
+
     if (file == NULL) {
         printf("Error opening file %s\n", filename);
         return;
     }
 
     char line[100];
+
     int semaphore = 0, mutex = 1, waitCount = 0; 
+
     char file_name[100], file_data[100]; 
+
     int val1, val2; 
+
     int filename_read = 0;
+
     while (fgets(line, sizeof(line), file)) {
+
         char* token = strtok(line, " ");
+
         if (strcmp(token, "semWait") == 0) {
+
             char* resource = strtok(NULL, " ");
+
             sem_wait(&semaphore, &mutex, &waitCount);
+
         }
         else if (strcmp(token, "assign") == 0) {
+
              char* var = strtok(NULL, " ");
+
               if (strcmp(var, "a") == 0)
+
                  assign(var, &file_name[0]); 
+
               else if (strcmp(var, "b") == 0)
+
                  assign(var, &file_data[0]); 
+
               else {
+
                   printf("Invalid variable name\n");
+
                   return;
           }
         }
         else if (strcmp(token, "writeFile") == 0) {
+
              write_file(file_name, file_data); 
+
          }
         else if (strcmp(token, "readFile") == 0) {
+
              if (!filename_read) {
-                  assign("filename", &file_name[0]); 
+
+                 assign("filename", &file_name[0]); 
+
                  filename_read = 1;
+
                  read_file(file_name);
+
          } 
-            read_file(file_name); 
+
+             read_file(file_name); 
+
          }
+
          else if (strcmp(token, "semSignal") == 0) {
+
               char* resource = strtok(NULL, " ");
+
               sem_signal(&semaphore, &mutex, &waitCount);
+
          }
          else if (strcmp(token, "printFromTo") == 0) {
+
               val1 = atoi(file_name); 
+
               val2 = atoi(file_data);
+
               print_from_to(val1, val2); 
      }
 
         else if (strcmp(token, "print") == 0) {
+
             char* var = strtok(NULL, " ");
+
             print(var);
+
         }
     }
 
