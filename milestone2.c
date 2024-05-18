@@ -5,6 +5,7 @@
 #define MEMORY_SIZE 60
 #define PROCESS_VARS_SIZE 3
 #define NUM_PROCESSES 3
+#define TIME_QUANTUM 10
 
 enum State { READY, BLOCKED, RUNNING, DEAD };
 
@@ -21,6 +22,7 @@ struct Scheduler {
     struct Process* queues[4][NUM_PROCESSES];
 };
 
+int memory[MEMORY_SIZE] = {0};
 int userInput = 1;
 int userOutput = 1;
 int file = 1;
@@ -36,7 +38,7 @@ void sem_signal(int* semaphore) {
     (*semaphore)++;
 }
 
-void write_file(char* filename, char* content) {
+void write_file(const char* filename, const char* content) {
     FILE* file = fopen(filename, "w");
     if (file == NULL) {
         printf("Error opening file\n");
@@ -72,13 +74,37 @@ void print(char* str) {
     printf("%s\n", str);
 }
 
-void execute_instruction(char* instruction) {
+void print_memory() {
+    printf("Memory: ");
+    for (int i = 0; i < MEMORY_SIZE; i++) {
+        printf("%d ", memory[i]);
+    }
+    printf("\n");
+}
+
+void print_queues(struct Scheduler* scheduler) {
+    printf("Scheduler Queues:\n");
+    for (int i = 0; i < 4; i++) {
+        printf("Priority %d: ", i + 1);
+        for (int j = 0; j < NUM_PROCESSES; j++) {
+            if (scheduler->queues[i][j] != NULL) {
+                printf("P%d ", scheduler->queues[i][j]->pid);
+            }
+        }
+        printf("\n");
+    }
+}
+
+void execute_instruction(struct Process* process, char* instruction) {
     char command[20], arg1[20], arg2[20];
+
     static char file_name[100] = {0}, file_data[100] = {0}, buffer[100] = {0};
 
     if (sscanf(instruction, "%s %s %s", command, arg1, arg2) < 1) {
         return;
     }
+
+    printf("Executing instruction: %s\n", instruction);
 
     if (strcmp(command, "semWait") == 0) {
         if (strcmp(arg1, "userInput") == 0) sem_wait(&userInput);
@@ -92,26 +118,27 @@ void execute_instruction(char* instruction) {
         if (strcmp(arg1, "a") == 0) {
             if (strcmp(arg2, "input") == 0) {
                 assign("a", file_name);
+                memory[0] = atoi(file_name);
             } else if (strcmp(arg2, "readFile") == 0) {
-                read_file(file_name, buffer , sizeof(buffer));
+                read_file(file_name, buffer, sizeof(buffer));
+                memory[0] = atoi(buffer);
             }
         }
         if (strcmp(arg1, "b") == 0) {
             if (strcmp(arg2, "input") == 0) {
                 assign("b", file_data);
-            }
-            else if (strcmp(arg2, "readFile") == 0) {
-                read_file(file_name, buffer , sizeof(buffer));
+                memory[1] = atoi(file_data);
+            } else if (strcmp(arg2, "readFile") == 0) {
+                read_file(file_name, buffer, sizeof(buffer));
+                memory[1] = atoi(buffer);
             }
         }
     } else if (strcmp(command, "writeFile") == 0) {
         write_file(file_name, file_data);
     } else if (strcmp(command, "readFile") == 0) {
-        read_file(file_name, buffer , sizeof(buffer));
+        read_file(file_name, buffer, sizeof(buffer));
     } else if (strcmp(command, "printFromTo") == 0) {
-        int from = atoi(file_name); 
-        int to = atoi(file_data);
-        print_from_to(from, to);
+        print_from_to(memory[0], memory[1]);
     } else if (strcmp(command, "print") == 0) {
         print(buffer);
     }
@@ -125,12 +152,13 @@ void execute_program(struct Process* process) {
     }
 
     char instruction[100];
-    printf("\nExecuting process %d\n", process->pid); // Start of process execution
-    while (fgets(instruction, sizeof(instruction), file)) {
-        printf("Executing instruction: %s", instruction);
-        execute_instruction(instruction);
+    int time_spent = 0;
+
+    while (fgets(instruction, sizeof(instruction), file) && time_spent < TIME_QUANTUM) {
+        execute_instruction(process, instruction);
+        time_spent++;
+        print_memory();
     }
-    
 
     fclose(file);
 }
@@ -142,8 +170,10 @@ void run_scheduler(struct Scheduler* scheduler) {
                 struct Process* process = scheduler->queues[i][j];
                 if (process->state == READY) {
                     process->state = RUNNING;
+                    printf("\nExecuting process %d\n", process->pid);
                     execute_program(process);
                     process->state = READY;
+                    print_queues(scheduler);
                 }
             }
         }
