@@ -13,27 +13,21 @@ struct Process {
     enum State state;
     int priority;
     int program_counter;
-    int memory_boundaries[2];
-    char variables[PROCESS_VARS_SIZE][100];
-};
-
-struct Memory {
-    char memory_words[MEMORY_SIZE][100];
-    struct Process process_table[NUM_PROCESSES];
+    char program_file[20];
+    int variables[PROCESS_VARS_SIZE];
 };
 
 struct Scheduler {
     struct Process* queues[4][NUM_PROCESSES];
-    int queue_sizes[4];
-    struct Process* blocked_queue[NUM_PROCESSES];
-    int blocked_queue_size;
 };
 
-int semaphore_userInput = 1, semaphore_userOutput = 1, semaphore_file = 1;
+int userInput = 1;
+int userOutput = 1;
+int file = 1;
 
 void sem_wait(int* semaphore) {
     while (*semaphore <= 0) {
-        // Busy-wait
+        // Busy wait
     }
     (*semaphore)--;
 }
@@ -42,7 +36,7 @@ void sem_signal(int* semaphore) {
     (*semaphore)++;
 }
 
-void write_file(const char* filename, const char* content) {
+void write_file(char* filename, char* content) {
     FILE* file = fopen(filename, "w");
     if (file == NULL) {
         printf("Error opening file\n");
@@ -78,93 +72,94 @@ void print(char* str) {
     printf("%s\n", str);
 }
 
-void execute_program_1() {
-    sem_wait(&semaphore_userInput);
-    int x, y;
-    printf("Enter the first number: ");
-    scanf("%d", &x);
-    printf("Enter the second number: ");
-    scanf("%d", &y);
-    sem_signal(&semaphore_userInput);
+void execute_instruction(char* instruction) {
+    char command[20], arg1[20], arg2[20];
+    static char file_name[100] = {0}, file_data[100] = {0}, buffer[100] = {0};
 
-    sem_wait(&semaphore_userOutput);
-    print_from_to(x, y);
-    sem_signal(&semaphore_userOutput);
+    if (sscanf(instruction, "%s %s %s", command, arg1, arg2) < 1) {
+        return;
+    }
+
+    if (strcmp(command, "semWait") == 0) {
+        if (strcmp(arg1, "userInput") == 0) sem_wait(&userInput);
+        if (strcmp(arg1, "userOutput") == 0) sem_wait(&userOutput);
+        if (strcmp(arg1, "file") == 0) sem_wait(&file);
+    } else if (strcmp(command, "semSignal") == 0) {
+        if (strcmp(arg1, "userInput") == 0) sem_signal(&userInput);
+        if (strcmp(arg1, "userOutput") == 0) sem_signal(&userOutput);
+        if (strcmp(arg1, "file") == 0) sem_signal(&file);
+    } else if (strcmp(command, "assign") == 0) {
+        if (strcmp(arg1, "a") == 0) {
+            if (strcmp(arg2, "input") == 0) {
+                assign("a", file_name);
+            } else if (strcmp(arg2, "readFile") == 0) {
+                read_file(file_name, buffer , sizeof(buffer));
+            }
+        }
+        if (strcmp(arg1, "b") == 0) {
+            if (strcmp(arg2, "input") == 0) {
+                assign("b", file_data);
+            }
+            else if (strcmp(arg2, "readFile") == 0) {
+                read_file(file_name, buffer , sizeof(buffer));
+            }
+        }
+    } else if (strcmp(command, "writeFile") == 0) {
+        write_file(file_name, file_data);
+    } else if (strcmp(command, "readFile") == 0) {
+        read_file(file_name, buffer , sizeof(buffer));
+    } else if (strcmp(command, "printFromTo") == 0) {
+        int from = atoi(file_name); 
+        int to = atoi(file_data);
+        print_from_to(from, to);
+    } else if (strcmp(command, "print") == 0) {
+        print(buffer);
+    }
 }
 
-void execute_program_2() {
-    sem_wait(&semaphore_userInput);
-    char filename[100];
-    char data[100];
-    printf("Enter the filename: ");
-    scanf("%s", filename);
-    printf("Enter the data to write to the file: ");
-    scanf(" %[^\n]", data);  // This allows reading a string with spaces
-    sem_signal(&semaphore_userInput);
+void execute_program(struct Process* process) {
+    FILE* file = fopen(process->program_file, "r");
+    if (file == NULL) {
+        printf("Error opening program file %s\n", process->program_file);
+        return;
+    }
 
-    sem_wait(&semaphore_file);
-    write_file(filename, data);
-    sem_signal(&semaphore_file);
-}
+    char instruction[100];
+    printf("\nExecuting process %d\n", process->pid); // Start of process execution
+    while (fgets(instruction, sizeof(instruction), file)) {
+        printf("Executing instruction: %s", instruction);
+        execute_instruction(instruction);
+    }
+    
 
-void execute_program_3() {
-    sem_wait(&semaphore_userInput);
-    char filename[100];
-    printf("Enter the filename: ");
-    scanf("%s", filename);
-    sem_signal(&semaphore_userInput);
-
-    sem_wait(&semaphore_file);
-    char file_content[100];
-    read_file(filename, file_content, sizeof(file_content));
-    sem_signal(&semaphore_file);
-
-    sem_wait(&semaphore_userOutput);
-    printf("File contents:\n%s\n", file_content);
-    sem_signal(&semaphore_userOutput);
-}
-
-void add_to_queue(struct Process* process, struct Scheduler* scheduler) {
-    int priority = process->priority;
-    scheduler->queues[priority][scheduler->queue_sizes[priority]++] = process;
+    fclose(file);
 }
 
 void run_scheduler(struct Scheduler* scheduler) {
-    while (1) {
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < scheduler->queue_sizes[i]; j++) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < NUM_PROCESSES; j++) {
+            if (scheduler->queues[i][j] != NULL) {
                 struct Process* process = scheduler->queues[i][j];
-                process->state = RUNNING;
-                switch (process->pid) {
-                    case 1:
-                        execute_program_1();
-                        break;
-                    case 2:
-                        execute_program_2();
-                        break;
-                    case 3:
-                        execute_program_3();
-                        break;
+                if (process->state == READY) {
+                    process->state = RUNNING;
+                    execute_program(process);
+                    process->state = READY;
                 }
-                process->state = READY;
             }
         }
     }
 }
 
 int main() {
-    struct Memory memory;
-    struct Scheduler scheduler;
+    struct Scheduler scheduler = { 0 };
 
-    memset(&scheduler, 0, sizeof(scheduler));
+    struct Process process1 = { 1, READY, 2, 0, "Program_1.txt" };
+    struct Process process2 = { 2, READY, 3, 0, "Program_2.txt" };
+    struct Process process3 = { 3, READY, 4, 0, "Program_3.txt" };
 
-    struct Process process1 = {1, READY, 1, 0, {0, 3}, {"a", "b", "c"}};
-    struct Process process2 = {2, READY, 1, 0, {4, 7}, {"a", "b", "c"}};
-    struct Process process3 = {3, READY, 1, 0, {8, 11}, {"a", "b", "c"}};
-
-    add_to_queue(&process1, &scheduler);
-    add_to_queue(&process2, &scheduler);
-    add_to_queue(&process3, &scheduler);
+    scheduler.queues[1][0] = &process1;
+    scheduler.queues[2][0] = &process2;
+    scheduler.queues[3][0] = &process3;
 
     run_scheduler(&scheduler);
 
