@@ -1,3 +1,8 @@
+//things that still need adjusting 
+//proper memory allocation
+//creation of another proccess struct to store other stuff not needed in PCB
+//proper mutex implementation?
+//fixing the time cycles?
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
