@@ -13,7 +13,7 @@
 
 enum State { READY, BLOCKED, RUNNING, DEAD };
 
-struct Process {
+typedef struct {
     int pid;
     enum State state;
     int priority;
@@ -21,11 +21,11 @@ struct Process {
     char program_file[20];
     int variables[PROCESS_VARS_SIZE];
     int arrival_time;
-};
+} Process;
 
-struct Scheduler {
-    struct Process* queues[4][NUM_PROCESSES];
-};
+typedef struct  {
+    Process* queues[4][NUM_PROCESSES];
+} Scheduler;
 
 int memory[MEMORY_SIZE] = {0};
 int userInput = 1;
@@ -89,7 +89,7 @@ void print_memory() {
     printf("\n");
 }
 
-void print_queues(struct Scheduler* scheduler) {
+void print_queues(Scheduler* scheduler) {
     printf("Scheduler Queues:\n");
     for (int i = 0; i < 4; i++) {
         printf("Priority %d: ", i + 1);
@@ -188,7 +188,7 @@ void execute_instruction(struct Process* process, char* instruction) {
     }
 }
 
-void execute_program(struct Process* process) {
+void execute_program(Process* process) {
 
     FILE* file = fopen(process->program_file, "r");
 
@@ -215,7 +215,7 @@ void execute_program(struct Process* process) {
     fclose(file);
 }
 
-void run_scheduler(struct Scheduler* scheduler) {
+void run_scheduler(Scheduler* scheduler) {
 
     while (1) {
 
@@ -227,7 +227,7 @@ void run_scheduler(struct Scheduler* scheduler) {
 
                 if (scheduler->queues[i][j] != NULL) {
 
-                    struct Process* process = scheduler->queues[i][j];
+                    Process* process = scheduler->queues[i][j];
 
                     if (process->state != DEAD && process->arrival_time <= current_time) {
 
@@ -260,9 +260,9 @@ void run_scheduler(struct Scheduler* scheduler) {
 
 int main() {
     
-    struct Scheduler scheduler = { 0 };
+    Scheduler scheduler = { 0 };
 
-    struct Process processes[NUM_PROCESSES] = {
+    Process processes[NUM_PROCESSES] = {
         { 1, READY, 2, 0, "Program_1.txt", {0}, 0 },
         { 2, READY, 3, 0, "Program_2.txt", {0}, 0 },
         { 3, READY, 4, 0, "Program_3.txt", {0}, 0 }
