@@ -24,6 +24,12 @@ typedef struct {
 } Process;
 
 typedef struct  {
+enum {zero,one} value;
+int ownerID;
+int queue[];
+} mutex;
+
+typedef struct  {
     Process* queues[4][NUM_PROCESSES];
 } Scheduler;
 
@@ -34,15 +40,31 @@ int file = 1;
 int current_time = 0;
 int time_quantum;
 
-void sem_wait(int* semaphore) {
+void sem_wait(int* semaphore, mutex m) {
     while (*semaphore <= 0) {
         // Busy wait
     }
     (*semaphore)--;
+
+    if (m.value == one) {
+m.ownerID = getProcessID();
+m.value = zero;
+} else {
+/* place this process in m.queue */
+}
 }
 
-void sem_signal(int* semaphore) {
+void sem_signal(int* semaphore, mutex m) {
     (*semaphore)++;
+
+    if(m.ownerID == getProcessID()) {
+        if (sizeof(m.queue) == 0)
+        m.value = one;
+        else {
+        /* remove a process P from m.queue and place it on ready list*/
+        /* update ownerID to be equal to Process P’s ID */
+        }
+    }
 }
 
 void write_file(const char* filename, const char* content) {
@@ -105,6 +127,7 @@ void print_queues(Scheduler* scheduler) {
 void execute_instruction(struct Process* process, char* instruction) {
 
     char command[20], arg1[20], arg2[20];
+    mutex m;
 
     static char file_name[100] = {0}, file_data[100] = {0}, buffer[100] = {0};
 
@@ -118,20 +141,20 @@ void execute_instruction(struct Process* process, char* instruction) {
 
     if (strcmp(command, "semWait") == 0) {
 
-        if (strcmp(arg1, "userInput") == 0) sem_wait(&userInput);
+        if (strcmp(arg1, "userInput") == 0) sem_wait(&userInput, m);
 
-        if (strcmp(arg1, "userOutput") == 0) sem_wait(&userOutput);
+        if (strcmp(arg1, "userOutput") == 0) sem_wait(&userOutput, m);
 
-        if (strcmp(arg1, "file") == 0) sem_wait(&file);
+        if (strcmp(arg1, "file") == 0) sem_wait(&file, m);
 
     } 
     else if (strcmp(command, "semSignal") == 0) {
 
-        if (strcmp(arg1, "userInput") == 0) sem_signal(&userInput);
+        if (strcmp(arg1, "userInput") == 0) sem_signal(&userInput, m);
 
-        if (strcmp(arg1, "userOutput") == 0) sem_signal(&userOutput);
+        if (strcmp(arg1, "userOutput") == 0) sem_signal(&userOutput, m);
 
-        if (strcmp(arg1, "file") == 0) sem_signal(&file);
+        if (strcmp(arg1, "file") == 0) sem_signal(&file,m);
 
     } 
     else if (strcmp(command, "assign") == 0) {
