@@ -22,7 +22,6 @@ typedef struct
     {
     int pid;            // Process ID
     char state[20];     // Process State
-    int priority;       // Current Priority
     int counter;        // Program Counter
     int lower_bound;    // Lower Bound of the process’ space in the memory
     int upper_bound;    // Upper Bound of the process’ space in the memory
@@ -32,9 +31,11 @@ typedef struct
 
 typedef struct
     {
-    int semaphore;
     int owner_id;
     int locked;
+    int blocked_queue[QUEUE_SIZE];
+    int rear_blocked;
+    int front_blocked;
     } mutex;
 
 mutex userInputMutex;
@@ -48,38 +49,74 @@ int current_time = 0;
 int time_quantum;
 
 int ready_queue[QUEUE_SIZE];
-int front = -1, rear = -1;
+int front_ready = 0, rear_ready = 0;
+
+int blocked_queue[QUEUE_SIZE];
+int front_blocked = 0, rear_blocked = 0;
 
 // Function to enqueue a process in the ready queue
-void enqueue(int pid)
+void enqueue_ready(int pid)
     {
-    if ((rear + 1) % QUEUE_SIZE == front)
+    if ((rear_ready + 1) % QUEUE_SIZE == front_ready)
         {
         printf("Ready queue is full\n");
         return;
         }
-    if (front == -1)
-        front = 0;
-    rear = (rear + 1) % QUEUE_SIZE;
-    ready_queue[rear] = pid;
+    if (front_ready == -1)
+        front_ready = 0;
+    rear_ready = (rear_ready + 1) % QUEUE_SIZE;
+    ready_queue[rear_ready] = pid;
     }
-
 // Function to dequeue a process from the ready queue
-int dequeue()
+int dequeue_ready()
     {
-    if (front == -1)
+    if (front_ready == -1)
         {
         printf("Ready queue is empty\n");
         return -1;
         }
-    int pid = ready_queue[front];
-    if (front == rear)
+    int pid = ready_queue[front_ready];
+    if (front_ready == rear_ready)
         {
-        front = rear = -1;
+        front_ready = rear_ready = -1;
         }
     else
         {
-        front = (front + 1) % QUEUE_SIZE;
+        front_ready = (front_ready + 1) % QUEUE_SIZE;
+        }
+    return pid;
+    }
+
+// Function to enqueue a process in the blocked queue
+void enqueue_blocked(int pid, mutex mutex)
+    {
+    if ((mutex.rear_blocked + 1) % QUEUE_SIZE == mutex.front_blocked)
+        {
+        printf("Blocked queue is full\n");
+        return;
+        }
+    if (mutex.front_blocked == -1)
+        mutex.front_blocked = 0;
+    mutex.rear_blocked = (mutex.rear_blocked + 1) % QUEUE_SIZE;
+    mutex.blocked_queue[rear_blocked] = pid;
+    }
+
+// Function to dequeue a process from the blocked queue
+int dequeue_blocked(mutex mutex)
+    {
+    if (mutex.front_blocked == -1)
+        {
+        printf("Blocked queue is empty\n");
+        return -1;
+        }
+    int pid = mutex.blocked_queue[mutex.front_blocked];
+    if (mutex.front_blocked == mutex.rear_blocked)
+        {
+        mutex.front_blocked = mutex.rear_blocked = -1;
+        }
+    else
+        {
+        mutex.front_blocked = (mutex.front_blocked + 1) % QUEUE_SIZE;
         }
     return pid;
     }
@@ -90,7 +127,6 @@ void update_Memory_PCB(PCB* pcb)
         {
         if (strcmp(memory.memory_blocks[i].name, "PID") == 0 && atoi(memory.memory_blocks[i].data) == pcb->pid) {
             strcpy(memory.memory_blocks[i + 1].data, pcb->state);
-            sprintf(memory.memory_blocks[i + 2].data, "%d", pcb->priority);
             sprintf(memory.memory_blocks[i + 3].data, "%d", pcb->counter);
             sprintf(memory.memory_blocks[i + 4].data, "%d", pcb->lower_bound);
             sprintf(memory.memory_blocks[i + 5].data, "%d", pcb->upper_bound);
@@ -259,40 +295,46 @@ void write_file(char* arg1, char* arg2, PCB* pcb)
 void semWait(char* arg1, PCB* pcb) {
     if (strcmp(arg1, "userInput") == 0)
         {
-        if (userInputMutex.semaphore >= 0)
+        if (userInputMutex.locked == 0)
             {
-            printf("Process %d is waiting for userInput\n", pcb->pid);
             userInputMutex.owner_id = pcb->pid;
-
-            userInputMutex.semaphore--;
+            userInputMutex.locked = 1;
+            strcpy(pcb->state, "RUNNING");
             }
         else {
+            printf("Process %d is waiting for userInput\n", pcb->pid);
             strcpy(pcb->state, "BLOCKED");
+
             }
         }
     else if (strcmp(arg1, "userOutput") == 0)
         {
-        if (userOutputMutex.semaphore >= 0)
+        if (userOutputMutex.locked == 0)
             {
-            printf("Process %d is waiting for userOutput\n", pcb->pid);
+
             userOutputMutex.owner_id = pcb->pid;
-            userOutputMutex.semaphore--;
+            userOutputMutex.locked = 1;
+            strcpy(pcb->state, "RUNNING");
             }
         else {
+            printf("Process %d is waiting for userOutput\n", pcb->pid);
             strcpy(pcb->state, "BLOCKED");
+            enqueue_blocked(pcb->pid, userOutputMutex);
             }
-
         }
     else if (strcmp(arg1, "file") == 0)
         {
-        if (fileMutex.semaphore >= 0)
+        if (fileMutex.locked == 0)
             {
             printf("Process %d is waiting for file\n", pcb->pid);
             fileMutex.owner_id = pcb->pid;
-            fileMutex.semaphore--;
+            fileMutex.locked = 1;
+            strcpy(pcb->state, "RUNNING");
             }
         else {
+            printf("Process %d is waiting for file\n", pcb->pid);
             strcpy(pcb->state, "BLOCKED");
+            enqueue_blocked(pcb->pid, fileMutex);
             }
         }
     }
@@ -302,17 +344,21 @@ void semSignal(char* arg1, PCB* pcb) {
     if (strcmp(arg1, "userInput") == 0)
         {
         userInputMutex.owner_id = 0;
-        userInputMutex.semaphore++;
+        userInputMutex.locked = 0;
+        enqueue_ready(dequeue_blocked(userInputMutex));
+
         }
     else if (strcmp(arg1, "userOutput") == 0)
         {
         userOutputMutex.owner_id = 0;
-        userOutputMutex.semaphore++;
+        userOutputMutex.locked = 0;
+        enqueue_ready(dequeue_blocked(userOutputMutex));
         }
     else if (strcmp(arg1, "file") == 0)
         {
         fileMutex.owner_id = 0;
-        fileMutex.semaphore++;
+        fileMutex.locked = 0;
+        enqueue_ready(dequeue_blocked(fileMutex));
         }
     }
 // Function to execute an instruction
@@ -363,9 +409,6 @@ void write_pcb_to_memory(PCB* pcb)
     strcpy(memory.memory_blocks[mem_start].name, "State");
     strcpy(memory.memory_blocks[mem_start].data, pcb->state);
     mem_start++;
-    strcpy(memory.memory_blocks[mem_start].name, "Priority");
-    sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->priority);
-    mem_start++;
     strcpy(memory.memory_blocks[mem_start].name, "Counter");
     sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->counter);
     mem_start++;
@@ -388,7 +431,6 @@ void LoadProgram(char* filename, PCB* pcb)
         }
     strcpy(pcb->state, "READY");
     pcb->counter = 0;
-    pcb->priority = 0;
     pcb->lower_bound = mem_start;
     char instruction[100];
     int i = 0;
@@ -429,8 +471,6 @@ void execute_program(PCB* pcb)
         {
         if (time_spent >= time_quantum)
             break;
-        if (strcmp(pcb->state, "BLOCKED") == 0)
-            break;
         strcpy(instruction, memory.memory_blocks[i].data);
         printf("Executing instruction: %s\n", instruction);
         execute_instruction(instruction, pcb);
@@ -455,12 +495,11 @@ void add_arriving_processes(PCB processes[], int num_processes)
         {
         if (strcmp(processes[i].state, "READY") == 0 && processes[i].arrival_time == current_time)
             {
-            enqueue(processes[i].pid);
+            enqueue_ready(processes[i].pid);
             LoadProgram(processes[i].filename, processes + i);
             }
         }
     }
-
 
 
 // Function to run the scheduler
@@ -470,9 +509,8 @@ void run_scheduler(PCB processes[], int num_processes)
         {
         add_arriving_processes(processes, num_processes);
 
-        int pid = dequeue();
-        if (pid == -1)
-            {
+        int pid = dequeue_ready();
+        if (pid == -1) {
             // Check if all processes are dead
             int all_dead = 1;
             for (int i = 0; i < num_processes; i++)
@@ -483,8 +521,9 @@ void run_scheduler(PCB processes[], int num_processes)
                     break;
                     }
                 }
-            if (all_dead)
-                break;
+            if (all_dead) {
+                return;
+                }
             current_time++;
             continue;
             }
@@ -495,13 +534,15 @@ void run_scheduler(PCB processes[], int num_processes)
             strcpy(process->state, "RUNNING");
             printf("\nExecuting process %d\n", process->pid);
             execute_program(process);
-
-            if (strcmp(process->state, "DEAD") != 0)
-                {
-                strcpy(process->state, "READY");
-                enqueue(process->pid);
-                }
             }
+
+        if (strcmp(process->state, "BLOCKED") == 0) {
+            printf("Process %d is blocked\n", process->pid);
+            }
+        if (strcmp(process->state, "DEAD") == 0) {
+            printf("Process %d is dead\n", process->pid);
+            }
+
 
         current_time++;
         }
@@ -512,13 +553,13 @@ int main()
     {
     // Initialize memory
     initialize_memory();
-    userInputMutex.semaphore = 1;
-    userOutputMutex.semaphore = 1;
-    fileMutex.semaphore = 1;
+    userInputMutex.locked = 0;
+    userOutputMutex.locked = 0;
+    fileMutex.locked = 0;
     PCB processes[NUM_PROCESSES] = {
-        {1, "READY", 0, 0, 0, 0, 0, "Program_1.txt"},
-        {2, "READY", 0, 0, 0, 0, 0, "Program_2.txt"},
-        {3, "READY", 0, 0, 0, 0, 0, "Program_3.txt"} };
+        {1, "READY", 0, 0, 0, 0, "Program_1.txt"},
+        {2, "READY", 0, 0, 0, 0, "Program_2.txt"},
+        {3, "READY", 0, 0, 0, 0, "Program_3.txt"} };
 
     printf("Enter the time quantum: ");
     scanf("%d", &time_quantum);
