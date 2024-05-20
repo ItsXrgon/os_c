@@ -34,6 +34,7 @@ typedef struct
     {
     int semaphore;
     int owner_id;
+    int locked;
     } mutex;
 
 mutex userInputMutex;
@@ -258,42 +259,40 @@ void write_file(char* arg1, char* arg2, PCB* pcb)
 void semWait(char* arg1, PCB* pcb) {
     if (strcmp(arg1, "userInput") == 0)
         {
-        if (userInputMutex.semaphore == 0)
+        if (userInputMutex.semaphore >= 0)
             {
             printf("Process %d is waiting for userInput\n", pcb->pid);
             userInputMutex.owner_id = pcb->pid;
+
             userInputMutex.semaphore--;
             }
         else {
-            dequeue();
-            enqueue(pcb->pid);
+            strcpy(pcb->state, "BLOCKED");
             }
         }
     else if (strcmp(arg1, "userOutput") == 0)
         {
-        if (userOutputMutex.semaphore == 0)
+        if (userOutputMutex.semaphore >= 0)
             {
             printf("Process %d is waiting for userOutput\n", pcb->pid);
             userOutputMutex.owner_id = pcb->pid;
             userOutputMutex.semaphore--;
             }
         else {
-            dequeue();
-            enqueue(pcb->pid);
+            strcpy(pcb->state, "BLOCKED");
             }
 
         }
     else if (strcmp(arg1, "file") == 0)
         {
-        if (fileMutex.semaphore == 0)
+        if (fileMutex.semaphore >= 0)
             {
             printf("Process %d is waiting for file\n", pcb->pid);
             fileMutex.owner_id = pcb->pid;
             fileMutex.semaphore--;
             }
         else {
-            dequeue();
-            enqueue(pcb->pid);
+            strcpy(pcb->state, "BLOCKED");
             }
         }
     }
@@ -302,16 +301,18 @@ void semWait(char* arg1, PCB* pcb) {
 void semSignal(char* arg1, PCB* pcb) {
     if (strcmp(arg1, "userInput") == 0)
         {
+        userInputMutex.owner_id = 0;
         userInputMutex.semaphore++;
         }
     else if (strcmp(arg1, "userOutput") == 0)
         {
+        userOutputMutex.owner_id = 0;
         userOutputMutex.semaphore++;
         }
     else if (strcmp(arg1, "file") == 0)
         {
+        fileMutex.owner_id = 0;
         fileMutex.semaphore++;
-
         }
     }
 // Function to execute an instruction
@@ -427,6 +428,8 @@ void execute_program(PCB* pcb)
     for (int i = pcb->lower_bound + pcb->counter; i < pcb->upper_bound; i++)
         {
         if (time_spent >= time_quantum)
+            break;
+        if (strcmp(pcb->state, "BLOCKED") == 0)
             break;
         strcpy(instruction, memory.memory_blocks[i].data);
         printf("Executing instruction: %s\n", instruction);
