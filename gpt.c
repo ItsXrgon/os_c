@@ -6,215 +6,274 @@
 #define MAX_INSTRUCTIONS 20
 #define MAX_PROCESSES 3
 
-typedef struct Memory {
-    char data[MEMORY_SIZE][20]; // each word can store a name and data pair
-    } Memory;
 
-Memory memory;
+#include <stdio.h>
 
-typedef struct PCB {
-    int process_id;
-    char state[10];
-    int priority;
-    int program_counter;
-    int memory_lower_bound;
-    int memory_upper_bound;
-    char variables[3][2][20]; // to store variable names and values
+// Process Control Block (PCB)
+typedef struct {
+    int pid;             // Process ID
+    char state[10];      // Process State
+    int priority;        // Current Priority
+    int counter;         // Program Counter
+    int lower_bound;     // Lower Bound of the process’ space in the memory
+    int upper_bound;     // Upper Bound of the process’ space in the memory
     } PCB;
 
-PCB process_list[MAX_PROCESSES]; // list of all processes
-int process_count = 0;
+// Memory
+typedef struct {
+    char name[20];       // Name of the variable or instruction
+    char data[100];      // Data of the variable or instruction
+    } MemoryWord;
 
-typedef struct Mutex {
+typedef struct {
+    MemoryWord memory_blocks[60];   // Memory divided into memory words
+    } Memory;
+
+// Mutex
+typedef struct {
+    int is_locked;       // lock status
+    char resource[20];   // resource name
+    } Mutex;
+
+// Process
+typedef struct {
+    int id;              // Process ID
+    char filename[100];  // Filename
+    PCB pcb;             // PCB of the process
+    } Process;
+
+// Queue
+typedef struct {
+    Process* processes[60]; // Array of pointers to processes
+    int front, rear, size;
+    unsigned capacity;
+    } Queue;
+
+
+typedef struct {
+    char name[20];
+    char data[20];
+    } word;
+
+typedef struct {
     int locked;
     int owner_process_id;
     int blocked_queue[10]; // simple queue to manage blocked processes
     int blocked_count;
     } Mutex;
 
-Mutex file_mutex = { 0, -1, {0}, 0 };
-Mutex input_mutex = { 0, -1, {0}, 0 };
-Mutex output_mutex = { 0, -1, {0}, 0 };
+// Global variable for the blocked queue
+Queue blockedQueue;
 
-void load_program(const char* filename, int process_id) {
-    FILE* file = fopen(filename, "r");
-    if (file == NULL) {
-        perror("Unable to open file");
-        exit(1);
+// Global variable for the ready queue
+Queue readyQueue;
+
+// Global variable to represent the current process
+PCB* currentProcess;
+
+Mutex userInputMutex;
+Mutex userOutputMutex;
+Mutex fileMutex;
+
+
+// Helper function to find a mutex based on the resource name
+Mutex* findMutex(char* resource) {
+    // Logic to find and return the mutex based on the resource name
+    if (strcmp(resource, "userInput") == 0) {
+        return &userInputMutex;
         }
-
-    PCB* pcb = &process_list[process_count++];
-    pcb->process_id = process_id;
-    strcpy(pcb->state, "Ready");
-    pcb->priority = 0; // default priority
-    pcb->program_counter = 0;
-    pcb->memory_lower_bound = process_id * MAX_INSTRUCTIONS;
-    pcb->memory_upper_bound = pcb->memory_lower_bound + MAX_INSTRUCTIONS - 1;
-
-    int instruction_index = pcb->memory_lower_bound;
-    char line[256];
-    while (fgets(line, sizeof(line), file)) {
-        line[strcspn(line, "\n")] = 0; // remove newline character
-        strcpy(memory.data[instruction_index++], line);
+    else if (strcmp(resource, "userOutput") == 0) {
+        return &userOutputMutex;
         }
-
-    fclose(file);
+    else if (strcmp(resource, "file") == 0) {
+        return &fileMutex;
+        }
     }
 
-void semWait(Mutex* mutex, PCB* pcb) {
-    if (mutex->locked) {
+// Helper function to add a process to the blocked queue
+void addToBlockedQueue(PCB* process) {
+    // Add the process to the blocked queue
+
+    blockedQueue.processes[blockedQueue.rear] = process;
+    blockedQueue.rear = (blockedQueue.rear + 1) % blockedQueue.capacity;
+    blockedQueue.size++;
+
+    }
+
+// Helper function to remove the highest priority process from the ready queue
+PCB* removeFromReadyQueue() {
+    // Logic to remove and return the highest priority process from the ready queue
+
+    PCB* process = readyQueue.processes[readyQueue.front];
+    readyQueue.front = (readyQueue.front + 1) % readyQueue.capacity;
+    readyQueue.size--;
+    return process;
+    }
+// Helper function to check if a queue is empty
+int isQueueEmpty(Queue queue) {
+    // Logic to check if the queue is empty and return a boolean value
+
+    return queue.size == 0;
+    }
+
+// Helper function to handle context switching to the next ready process
+void contextSwitch() {
+    // Logic to perform a context switch to the next ready process
+
+    if (isQueueEmpty(readyQueue)) {
+        // No ready processes, continue with the current process
+        return;
+        }
+    else {
+        // Get the next process from the ready queue
+        PCB* nextProcess = removeFromReadyQueue();
+        // Switch to the next process
+        currentProcess = nextProcess;
+        }
+    }
+
+// Helper function to remove the highest priority process from the blocked queue
+PCB* removeFromBlockedQueue() {
+    // Logic to remove and return the highest priority process from the blocked queue
+
+    PCB* process = blockedQueue.processes[blockedQueue.front];
+    blockedQueue.front = (blockedQueue.front + 1) % blockedQueue.capacity;
+    blockedQueue.size--;
+    return process;
+    }
+
+// Helper function to add a process to the ready queue
+void addToReadyQueue(PCB* process) {
+    // Add the process to the ready queue
+
+    readyQueue.processes[readyQueue.rear] = process;
+    readyQueue.rear = (readyQueue.rear + 1) % readyQueue.capacity;
+    readyQueue.size++;
+    }
+
+
+/*
+This function is used to acquire a resource.
+If the resource is being used by another process,
+this process should be blocked and added to the blocked queue.
+*/
+void sem_Wait(char* resource) {
+    Mutex* mutex = findMutex(resource); // Assume there's a function to find the mutex based on the resource name
+    if (mutex->locked == 1) {
         // Add the process to the blocked queue
-        mutex->blocked_queue[mutex->blocked_count++] = pcb->process_id;
-        strcpy(pcb->state, "Blocked");
+        addToBlockedQueue(currentProcess); // Assume currentProcess is the PCB of the currently running process
+        // Implement logic to switch to the next ready process
+        contextSwitch();
         }
     else {
         mutex->locked = 1;
-        mutex->owner_process_id = pcb->process_id;
         }
     }
 
-void semSignal(Mutex* mutex, PCB* pcb) {
-    if (mutex->owner_process_id == pcb->process_id) {
-        if (mutex->blocked_count > 0) {
-            int next_process_id = mutex->blocked_queue[0];
-            // Remove the first process from the blocked queue
-            for (int i = 1; i < mutex->blocked_count; ++i) {
-                mutex->blocked_queue[i - 1] = mutex->blocked_queue[i];
-                }
-            mutex->blocked_count--;
-            // Unblock the process
-            PCB* next_pcb = &process_list[next_process_id - 1];
-            strcpy(next_pcb->state, "Ready");
-            }
-        else {
-            mutex->locked = 0;
-            mutex->owner_process_id = -1;
-            }
+/*
+This function is used to release a resource.
+If there are processes waiting for this resource,
+the one with the highest priority should be unblocked and added to the ready queue.
+*/
+void sem_Signal(char* resource) {
+    Mutex* mutex = findMutex(resource); // Assume there's a function to find the mutex based on the resource name
+    if (isQueueEmpty(blockedQueue)) {
+        mutex->locked = 0;
+        }
+    else {
+        PCB* highestPriorityProcess = removeFromBlockedQueue(); // Remove the highest priority process from the blocked queue
+        addToReadyQueue(highestPriorityProcess); // Add the process to ready queue
         }
     }
 
-PCB* get_pcb_by_id(int process_id) {
-    for (int i = 0; i < process_count; ++i) {
-        if (process_list[i].process_id == process_id) {
-            return &process_list[i];
-            }
-        }
-    return NULL;
+/*
+*
+This function prints the value of the variable on the screen.
+Before printing, the function should use
+ semWait to acquire the userOutput resource and semSignal to release it after printing.
+*
+
+@param variable: the variable to be printed
+*/
+void print(char* variable) {
+    semWait("userOutput");
+    printf("%s\n", variable);
+    semSignal("userOutput");
     }
 
-void execute_instruction(char* instruction, PCB* pcb) {
-    char command[20];
-    sscanf(instruction, "%s", command);
 
-    if (strcmp(command, "print") == 0) {
-        char var_name[20];
-        sscanf(instruction, "print %s", var_name);
-        for (int i = 0; i < 3; ++i) {
-            if (strcmp(pcb->variables[i][0], var_name) == 0) {
-                printf("%s\n", pcb->variables[i][1]);
-                break;
-                }
-            }
+
+/*
+*This function assigns a value to a variable.
+If the value is input, it should print "Please enter a value" to the screen,
+ then take the value as an input from the user.
+
+@param variable: the variable to be assigned
+@param value: the value to be assigned
+
+*/
+void assign(char* variable, char* value) {
+    if (strcmp(value, "input") == 0) {
+        semWait("userInput");
+        printf("Please enter a value: ");
+        scanf("%s", variable);
+        semSignal("userInput");
         }
-    else if (strcmp(command, "assign") == 0) {
-        char var_name[20], value[20];
-        sscanf(instruction, "assign %s %s", var_name, value);
-        if (strcmp(value, "input") == 0) {
-            printf("Please enter a value for %s: ", var_name);
-            scanf("%s", value);
-            }
-        else if (strcmp(value, "readFile") == 0) {
-            // Simulating reading a file
-            char file_var[20];
-            sscanf(instruction, "assign %s readFile %s", var_name, file_var);
-            strcpy(value, "file_content"); // Example content from file
-            }
-        for (int i = 0; i < 3; ++i) {
-            if (pcb->variables[i][0][0] == '\0' || strcmp(pcb->variables[i][0], var_name) == 0) {
-                strcpy(pcb->variables[i][0], var_name);
-                strcpy(pcb->variables[i][1], value);
-                break;
-                }
-            }
-        }
-    else if (strcmp(command, "writeFile") == 0) {
-        // Simulating writing to a file
-        }
-    else if (strcmp(command, "readFile") == 0) {
-        // Simulating reading from a file
-        }
-    else if (strcmp(command, "printFromTo") == 0) {
-        char var_name1[20], var_name2[20];
-        sscanf(instruction, "printFromTo %s %s", var_name1, var_name2);
-        int start, end;
-        for (int i = 0; i < 3; ++i) {
-            if (strcmp(pcb->variables[i][0], var_name1) == 0) {
-                start = atoi(pcb->variables[i][1]);
-                }
-            if (strcmp(pcb->variables[i][0], var_name2) == 0) {
-                end = atoi(pcb->variables[i][1]);
-                }
-            }
-        for (int i = start; i <= end; ++i) {
-            printf("%d\n", i);
-            }
-        }
-    else if (strcmp(command, "semWait") == 0) {
-        char resource[20];
-        sscanf(instruction, "semWait %s", resource);
-        if (strcmp(resource, "userInput") == 0) {
-            semWait(&input_mutex, pcb);
-            }
-        else if (strcmp(resource, "userOutput") == 0) {
-            semWait(&output_mutex, pcb);
-            }
-        else if (strcmp(resource, "file") == 0) {
-            semWait(&file_mutex, pcb);
-            }
-        }
-    else if (strcmp(command, "semSignal") == 0) {
-        char resource[20];
-        sscanf(instruction, "semSignal %s", resource);
-        if (strcmp(resource, "userInput") == 0) {
-            semSignal(&input_mutex, pcb);
-            }
-        else if (strcmp(resource, "userOutput") == 0) {
-            semSignal(&output_mutex, pcb);
-            }
-        else if (strcmp(resource, "file") == 0) {
-            semSignal(&file_mutex, pcb);
-            }
+    else {
+        strcpy(variable, value);
         }
     }
 
-void run_process(PCB* pcb) {
-    while (strcmp(pcb->state, "Ready") == 0) {
-        char* instruction = memory.data[pcb->memory_lower_bound + pcb->program_counter];
-        execute_instruction(instruction, pcb);
-        pcb->program_counter++;
-        if (pcb->program_counter > pcb->memory_upper_bound) {
-            strcpy(pcb->state, "Finished");
-            }
+/*
+This function writes data to a file.
+ It should use semWait to acquire the file resource before writing and semSignal to release it after writing.
+
+@param filename: the name of the file
+@param data: the data to be written to the file
+*/
+void writeFile(char* filename, char* data) {
+    semWait("file");
+    FILE* file = fopen(filename, "w");
+    if (file != NULL) {
+        fputs(data, file);
+        fclose(file);
         }
+    semSignal("file");
     }
 
-int main() {
-    memory = (Memory){ {0} };
-    load_program("Program_1.txt", 1);
-    load_program("Program_2.txt", 2);
-    load_program("Program_3.txt", 3);
+/*
+This function reads data from a file and prints it on the screen.
+It should use semWait to acquire the file and userOutput resources before reading and printing,
+and semSignal to release them after.
 
-    for (int i = 0; i < process_count; i++) {
-        PCB* pcb = &process_list[i];
-        run_process(pcb);
-        printf("Process ID: %d\n", pcb->process_id);
-        for (int j = 0; j <= MEMORY_SIZE; j++) {
-            if (strlen(memory.data[j]) > 0) {
-                printf("%s\n", memory.data[j]);
-                }
-            }
-        printf("\n");
+@param filename: the name of the file
+*/
+void readFile(char* filename) {
+    semWait("file");
+    semWait("userOutput");
+    char c;
+    FILE* file = fopen(filename, "r");
+    if (file != NULL) {
+        while ((c = getc(file)) != EOF)
+            putchar(c);
+        fclose(file);
         }
+    semSignal("userOutput");
+    semSignal("file");
+    }
 
-    return 0;
+
+/*
+This function prints all numbers between two numbers, inclusive.
+It should use semWait to acquire the userOutput resource before printing and semSignal to release it after printing.
+
+@param from: the starting number
+@param to: the ending number
+*/
+void printFromTo(int from, int to) {
+    semWait("userOutput");
+    for (int i = from; i <= to; i++) {
+        printf("%d\n", i);
+        }
+    semSignal("userOutput");
     }
