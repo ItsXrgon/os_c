@@ -178,7 +178,6 @@ void assign(char* arg1, char* arg2, char* arg3, PCB* pcb)
 
     }
 
-
 // Function to print a string
 void print(char* arg1, PCB* pcb)
     {
