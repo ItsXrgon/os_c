@@ -247,6 +247,9 @@ void run_scheduler(Process* processes, int num_processes) {
     }
 
 int main() {
+    userInputMutex.semaphore = 1;
+    userOutputMutex.semaphore = 1;
+    fileMutex.semaphore = 1;
     Process processes[NUM_PROCESSES] = {
         { 1, READY, 0, "Program_1.txt", {0}, 0 },
         { 2, READY, 0, "Program_2.txt", {0}, 10 },
