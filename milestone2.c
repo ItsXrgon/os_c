@@ -2,38 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MEMORY_SIZE 60
-#define NUM_PROCESSES 3
-
-enum State { READY, RUNNING, DEAD };
-
-typedef struct {
-    int pid;
-    enum State state;
-    int program_counter;
-    char program_file[20];
-    int variables[3];
-    int arrival_time;
-} Process;
-
-int memory[MEMORY_SIZE] = {0};
-int userInput = 1;
-int userOutput = 1;
-int file = 1;
-int current_time = 0;
-int time_quantum;
-
-void sem_wait(int* semaphore) {
-    while (*semaphore <= 0) {
-        // Busy wait
-    }
-    (*semaphore)--;
-}
-
-void sem_signal(int* semaphore) {
-    (*semaphore)++;
-}
-
+// Program Syntax
 void write_file(const char* filename, const char* content) {
     FILE* file = fopen(filename, "w");
     if (file == NULL) {
@@ -68,6 +37,38 @@ void assign(char* variable, char* value) {
 
 void print(char* str) {
     printf("%s\n", str);
+}
+
+#define MEMORY_SIZE 60
+#define NUM_PROCESSES 3
+
+enum State { READY, RUNNING, DEAD };
+
+typedef struct {
+    int pid;
+    enum State state;
+    int program_counter;
+    char program_file[20];
+    int variables[3];
+    int arrival_time;
+} Process;
+
+int memory[MEMORY_SIZE] = {0};
+int userInput = 1;
+int userOutput = 1;
+int file = 1;
+int current_time = 0;
+int time_quantum;
+
+void sem_wait(int* semaphore) {
+    while (*semaphore <= 0) {
+        // Busy wait
+    }
+    (*semaphore)--;
+}
+
+void sem_signal(int* semaphore) {
+    (*semaphore)++;
 }
 
 void print_memory() {
@@ -153,27 +154,72 @@ void execute_program(Process* process) {
     fclose(file);
 }
 
+#define QUEUE_SIZE 10
+int ready_queue[QUEUE_SIZE];
+int front = -1, rear = -1;
+
+void enqueue(int pid) {
+    if ((rear + 1) % QUEUE_SIZE == front) {
+        printf("Ready queue is full\n");
+        return;
+    }
+    if (front == -1) front = 0;
+    rear = (rear + 1) % QUEUE_SIZE;
+    ready_queue[rear] = pid;
+}
+
+int dequeue() {
+    if (front == -1) {
+        printf("Ready queue is empty\n");
+        return -1;
+    }
+    int pid = ready_queue[front];
+    if (front == rear) {
+        front = rear = -1;
+    } else {
+        front = (front + 1) % QUEUE_SIZE;
+    }
+    return pid;
+}
+
+void add_arriving_processes(Process* processes, int num_processes) {
+    for (int i = 0; i < num_processes; i++) {
+        if (processes[i].state == READY && processes[i].arrival_time == current_time) {
+            enqueue(processes[i].pid);
+        }
+    }
+}
+
 void run_scheduler(Process* processes, int num_processes) {
     while (1) {
-        int all_dead = 1;
+        add_arriving_processes(processes, num_processes);
 
-        for (int i = 0; i < num_processes; i++) {
-            if (processes[i].state != DEAD && processes[i].arrival_time <= current_time) {
-                all_dead = 0;
-
-                if (processes[i].state == READY) {
-                    processes[i].state = RUNNING;
-                    printf("\nExecuting process %d\n", processes[i].pid);
-                    execute_program(&processes[i]);
-                    if (processes[i].state != DEAD) {
-                        processes[i].state = READY;
-                    }
+        int pid = dequeue();
+        if (pid == -1) {
+            // Check if all processes are dead
+            int all_dead = 1;
+            for (int i = 0; i < num_processes; i++) {
+                if (processes[i].state != DEAD) {
+                    all_dead = 0;
+                    break;
                 }
             }
+            if (all_dead) break;
+            current_time++;
+            continue;
         }
 
-        if (all_dead) {
-            break;
+        Process* process = &processes[pid - 1];
+
+        if (process->state == READY || process->state == RUNNING) {
+            process->state = RUNNING;
+            printf("\nExecuting process %d\n", process->pid);
+            execute_program(process);
+
+            if (process->state != DEAD) {
+                process->state = READY;
+                enqueue(process->pid);
+            }
         }
 
         current_time++;
