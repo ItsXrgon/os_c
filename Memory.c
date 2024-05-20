@@ -77,11 +77,23 @@ void read_file(const char* filename, char* buffer, size_t size) {
     }
 
 // Function to assign value to a variable
-void assign(char* arg1, char* arg2) {
+void assign(char* arg1, char* arg2, PCB* pcb) {
     if (strcmp(arg2, "input") == 0) {
         printf("Enter value for %s: ", arg1);
         scanf("%s", arg2);
-
+        if (memory.memory_blocks[pcb->upper_bound + 1].name[0] == '\0') {
+            strcpy(memory.memory_blocks[pcb->upper_bound + 1].name, arg1);
+            strcpy(memory.memory_blocks[pcb->upper_bound + 1].data, arg2);
+            }
+        else {
+            if (memory.memory_blocks[pcb->upper_bound + 2].name[0] == '\0') {
+                strcpy(memory.memory_blocks[pcb->upper_bound + 2].name, arg1);
+                strcpy(memory.memory_blocks[pcb->upper_bound + 2].data, arg2);
+                }
+            else {
+                printf("Memory is full\n");
+                }
+            }
         }
     else {
         char command[20], var[20];
@@ -112,7 +124,10 @@ void print(char* arg1) {
     }
 
 // Function to print a range of numbers
-void print_from_to(int from, int to) {
+void print_from_to(int arg1, int arg2) {
+
+    int from = search_memory(arg1);
+    int to = search_memory(arg2);
     for (int i = from; i <= to; i++) {
         printf("%d\n", i);
         }
@@ -143,20 +158,20 @@ void semSignal(char* arg1) {
     }
 
 // Function to execute an instruction
-void execute_instruction(char* instruction) {
+void execute_instruction(char* instruction, PCB* pcb) {
     char command[20], arg1[20], arg2[20];
     if (sscanf(instruction, "%s %s %s", command, arg1, arg2) < 1) {
         return;
         }
 
     if (strcmp(command, "assign") == 0) {
-        assign(arg1, arg2);
+        assign(arg1, arg2, pcb);
         }
     else if (strcmp(command, "print") == 0) {
         print(arg1);
         }
     else if (strcmp(command, "printFromTo") == 0) {
-        print_from_to(atoi(arg1), atoi(arg2));
+        print_from_to(arg1, arg2);
         }
     else if (strcmp(command, "writefile") == 0) {
         write_file(arg1, arg2);
@@ -225,18 +240,51 @@ void LoadProgram(char* filename, int pID) {
     // assign pcb to memory
     write_pcb_to_memory(pcb);
     }
-
-// Function to excute a program in memory
-void execute_program() {
+PCB* search_memory_for_pcb(int pid) {
     for (int i = 0; i < 60; i++) {
-        if (memory.memory_blocks[i].name[0] != '\0') {
-            execute_instruction(memory.memory_blocks[i].data);
+        if (strcmp(memory.memory_blocks[i].name, "PID") == 0 && atoi(memory.memory_blocks[i].data) == pid) {
+            PCB* pcb = (PCB*)malloc(sizeof(PCB));
+            pcb->pid = atoi(memory.memory_blocks[i].data);
+            strcpy(pcb->state, memory.memory_blocks[i + 1].data);
+            pcb->priority = atoi(memory.memory_blocks[i + 2].data);
+            pcb->counter = atoi(memory.memory_blocks[i + 3].data);
+            pcb->lower_bound = atoi(memory.memory_blocks[i + 4].data);
+            pcb->upper_bound = atoi(memory.memory_blocks[i + 5].data);
+            return pcb;
             }
         }
+    return NULL;
     }
-void add_arriving_processes(PCB* processes, int num_processes) {
+// Function to excute a program in memory
+void execute_program(PCB* pcb) {
+    if (pcb == NULL) {
+        printf("Error: Process not found\n");
+        return;
+        }
+
+    char instruction[100];
+    int time_spent = 0;
+    for (int i = pcb->lower_bound;time_spent < time_quantum && i < pcb->upper_bound; i++) {
+        strcpy(instruction, memory.memory_blocks[i].data);
+        execute_instruction(instruction, pcb);
+        time_spent++;
+        }
+    }
+
+void enqueue(int pid) {
+    if ((rear + 1) % QUEUE_SIZE == front) {
+        printf("Ready queue is full\n");
+        return;
+        }
+    if (front == -1) front = 0;
+    rear = (rear + 1) % QUEUE_SIZE;
+    ready_queue[rear] = pid;
+    }
+
+void add_arriving_processes(PCB processes[], int num_processes) {
     for (int i = 0; i < num_processes; i++) {
-        if (processes[i].state == READY && processes[i].arrival_time == current_time) {
+        if (strcmp(processes[i].state, "READY") == 0 && processes[i].arrival_time == current_time) {
+            enqueue(processes[i].pid);
             LoadProgram(processes[i].filename, processes[i].pid);
             }
         }
@@ -257,18 +305,11 @@ int dequeue() {
     return pid;
     }
 
-void enqueue(int pid) {
-    if ((rear + 1) % QUEUE_SIZE == front) {
-        printf("Ready queue is full\n");
-        return;
-        }
-    if (front == -1) front = 0;
-    rear = (rear + 1) % QUEUE_SIZE;
-    ready_queue[rear] = pid;
-    }
 
-void run_scheduler(PCB* processes, int num_processes) {
+
+void run_scheduler(PCB processes[], int num_processes) {
     while (1) {
+
         add_arriving_processes(processes, num_processes);
 
         int pid = dequeue();
@@ -325,6 +366,8 @@ int main() {
         }
 
     run_scheduler(processes, NUM_PROCESSES);
+
+    print_memory();
 
     return 0;
     }
