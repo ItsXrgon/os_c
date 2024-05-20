@@ -5,10 +5,6 @@
 #define NUM_PROCESSES 3
 #define MEMORY_SIZE 60
 #define QUEUE_SIZE 10
-
-
-
-enum State { READY, RUNNING, DEAD };
 // Memory
 typedef struct {
     char name[20];       // Name of the variable or instruction
