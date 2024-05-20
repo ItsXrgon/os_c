@@ -21,12 +21,22 @@ typedef struct {
     int arrival_time;
 } Process;
 
+typedef struct{
+    int semaphore;
+} mutex;
+
+mutex userInputMutex;
+mutex userOutputMutex;
+mutex fileMutex;
+
 int memory[MEMORY_SIZE] = {0};
 int userInput = 1;
 int userOutput = 1;
 int file = 1;
 int current_time = 0;
 int time_quantum;
+
+
 
 // Program Syntax
 void write_file(const char* filename, const char* content) {
