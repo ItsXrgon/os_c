@@ -6,8 +6,7 @@
 #define MEMORY_SIZE 60
 #define QUEUE_SIZE 10
 
-int ready_queue[QUEUE_SIZE];
-int front = -1, rear = -1;
+
 // Memory
 typedef struct
     {
@@ -46,6 +45,24 @@ int mem_start = 0;
 int current_time = 0;
 int time_quantum;
 
+int ready_queue[QUEUE_SIZE];
+int front = -1, rear = -1;
+
+
+
+void update_Memory_PCB(PCB* pcb)
+    {
+    for (int i = pcb->upper_bound + 3; i < pcb->upper_bound + 6; i++)
+        {
+        if (strcmp(memory.memory_blocks[i].name, "PID") == 0 && atoi(memory.memory_blocks[i].data) == pcb->pid) {
+            strcpy(memory.memory_blocks[i + 1].data, pcb->state);
+            sprintf(memory.memory_blocks[i + 2].data, "%d", pcb->priority);
+            sprintf(memory.memory_blocks[i + 3].data, "%d", pcb->counter);
+            sprintf(memory.memory_blocks[i + 4].data, "%d", pcb->lower_bound);
+            sprintf(memory.memory_blocks[i + 5].data, "%d", pcb->upper_bound);
+            }
+        }
+    }
 // Function to initialize memory
 void initialize_memory()
     {
@@ -342,6 +359,7 @@ void execute_program(PCB* pcb)
         {
         strcpy(pcb->state, "DEAD");
         }
+    update_Memory_PCB(pcb);
     }
 
 // Function to enqueue a process in the ready queue
