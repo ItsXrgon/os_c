@@ -33,6 +33,7 @@ typedef struct
 typedef struct
     {
     int semaphore;
+    int owner_id;
     } mutex;
 
 mutex userInputMutex;
@@ -48,7 +49,39 @@ int time_quantum;
 int ready_queue[QUEUE_SIZE];
 int front = -1, rear = -1;
 
+// Function to enqueue a process in the ready queue
+void enqueue(int pid)
+    {
+    if ((rear + 1) % QUEUE_SIZE == front)
+        {
+        printf("Ready queue is full\n");
+        return;
+        }
+    if (front == -1)
+        front = 0;
+    rear = (rear + 1) % QUEUE_SIZE;
+    ready_queue[rear] = pid;
+    }
 
+// Function to dequeue a process from the ready queue
+int dequeue()
+    {
+    if (front == -1)
+        {
+        printf("Ready queue is empty\n");
+        return -1;
+        }
+    int pid = ready_queue[front];
+    if (front == rear)
+        {
+        front = rear = -1;
+        }
+    else
+        {
+        front = (front + 1) % QUEUE_SIZE;
+        }
+    return pid;
+    }
 
 void update_Memory_PCB(PCB* pcb)
     {
@@ -222,17 +255,65 @@ void write_file(char* arg1, char* arg2, PCB* pcb)
     }
 
 // Function to decrement semaphore
-void semWait(char* arg1, PCB* pcb)
-    {
-    // Placeholder for semaphore wait operation
+void semWait(char* arg1, PCB* pcb) {
+    if (strcmp(arg1, "userInput") == 0)
+        {
+        if (userInputMutex.semaphore == 0)
+            {
+            printf("Process %d is waiting for userInput\n", pcb->pid);
+            userInputMutex.owner_id = pcb->pid;
+            userInputMutex.semaphore--;
+            }
+        else {
+            dequeue();
+            enqueue(pcb->pid);
+            }
+        }
+    else if (strcmp(arg1, "userOutput") == 0)
+        {
+        if (userOutputMutex.semaphore == 0)
+            {
+            printf("Process %d is waiting for userOutput\n", pcb->pid);
+            userOutputMutex.owner_id = pcb->pid;
+            userOutputMutex.semaphore--;
+            }
+        else {
+            dequeue();
+            enqueue(pcb->pid);
+            }
+
+        }
+    else if (strcmp(arg1, "file") == 0)
+        {
+        if (fileMutex.semaphore == 0)
+            {
+            printf("Process %d is waiting for file\n", pcb->pid);
+            fileMutex.owner_id = pcb->pid;
+            fileMutex.semaphore--;
+            }
+        else {
+            dequeue();
+            enqueue(pcb->pid);
+            }
+        }
     }
 
 // Function to increment semaphore
-void semSignal(char* arg1, PCB* pcb)
-    {
-    // Placeholder for semaphore signal operation
-    }
+void semSignal(char* arg1, PCB* pcb) {
+    if (strcmp(arg1, "userInput") == 0)
+        {
+        userInputMutex.semaphore++;
+        }
+    else if (strcmp(arg1, "userOutput") == 0)
+        {
+        userOutputMutex.semaphore++;
+        }
+    else if (strcmp(arg1, "file") == 0)
+        {
+        fileMutex.semaphore++;
 
+        }
+    }
 // Function to execute an instruction
 void execute_instruction(char* instruction, PCB* pcb)
     {
@@ -348,6 +429,7 @@ void execute_program(PCB* pcb)
         if (time_spent >= time_quantum)
             break;
         strcpy(instruction, memory.memory_blocks[i].data);
+        printf("Executing instruction: %s\n", instruction);
         execute_instruction(instruction, pcb);
         pcb->counter++;
         time_spent++;
@@ -361,19 +443,7 @@ void execute_program(PCB* pcb)
     update_Memory_PCB(pcb);
     }
 
-// Function to enqueue a process in the ready queue
-void enqueue(int pid)
-    {
-    if ((rear + 1) % QUEUE_SIZE == front)
-        {
-        printf("Ready queue is full\n");
-        return;
-        }
-    if (front == -1)
-        front = 0;
-    rear = (rear + 1) % QUEUE_SIZE;
-    ready_queue[rear] = pid;
-    }
+
 
 // Function to add arriving processes to the ready queue
 void add_arriving_processes(PCB processes[], int num_processes)
@@ -388,25 +458,7 @@ void add_arriving_processes(PCB processes[], int num_processes)
         }
     }
 
-// Function to dequeue a process from the ready queue
-int dequeue()
-    {
-    if (front == -1)
-        {
-        printf("Ready queue is empty\n");
-        return -1;
-        }
-    int pid = ready_queue[front];
-    if (front == rear)
-        {
-        front = rear = -1;
-        }
-    else
-        {
-        front = (front + 1) % QUEUE_SIZE;
-        }
-    return pid;
-    }
+
 
 // Function to run the scheduler
 void run_scheduler(PCB processes[], int num_processes)
@@ -436,8 +488,7 @@ void run_scheduler(PCB processes[], int num_processes)
 
         PCB* process = &processes[pid - 1];
 
-        if (strcmp(process->state, "READY") == 0 || strcmp(process->state, "RUNNING") == 0)
-            {
+        if (strcmp(process->state, "READY") == 0 || strcmp(process->state, "RUNNING") == 0) {
             strcpy(process->state, "RUNNING");
             printf("\nExecuting process %d\n", process->pid);
             execute_program(process);
