@@ -6,8 +6,7 @@
 #define MEMORY_SIZE 60
 #define QUEUE_SIZE 10
 
-int ready_queue[QUEUE_SIZE];
-int front = -1, rear = -1;
+
 
 enum State { READY, RUNNING, DEAD };
 // Memory
@@ -37,6 +36,9 @@ typedef struct {
 mutex userInputMutex;
 mutex userOutputMutex;
 mutex fileMutex;
+
+int ready_queue[QUEUE_SIZE];
+int front = -1, rear = -1;
 
 
 // Global var for memory
@@ -317,39 +319,38 @@ int dequeue() {
 
 void run_scheduler(PCB processes[], int num_processes) {
 
-    while (1) {
-        add_arriving_processes(processes, num_processes);
 
-        int pid = dequeue();
-        if (pid == -1) {
-            // Check if all processes are dead
-            int all_dead = 1;
-            for (int i = 0; i < num_processes; i++) {
-                if (strcmp(processes[i].state, "DEAD") != 0) {
-                    all_dead = 0;
-                    break;
-                    }
-                }
-            if (all_dead) break;
-            current_time++;
-            continue;
-            }
+    add_arriving_processes(processes, num_processes);
 
-        PCB* process = &processes[pid - 1];
-
-        if (strcmp(process->state, "READY") == 0 || strcmp(process->state, "RUNNING") == 0) {
-            strcpy(process->state, "RUNNING");
-            printf("\nExecuting process %d\n", process->pid);
-            execute_program(process);
-
-            if (strcmp(process->state, "DEAD") != 0) {
-                strcpy(process->state, "READY");
-                enqueue(process->pid);
+    int pid = dequeue();
+    if (pid == -1) {
+        // Check if all processes are dead
+        int all_dead = 1;
+        for (int i = 0; i < num_processes; i++) {
+            if (strcmp(processes[i].state, "DEAD") != 0) {
+                all_dead = 0;
+                break;
                 }
             }
-
+        if (all_dead) return;
         current_time++;
         }
+
+    PCB* pcb = search_memory_for_pcb(pid);
+
+    if (strcmp(pcb->state, "READY") == 0 || strcmp(pcb->state, "RUNNING") == 0) {
+        strcpy(pcb->state, "RUNNING");
+        printf("\nExecuting process %d\n", pcb->pid);
+        execute_program(pcb);
+
+        if (strcmp(pcb->state, "DEAD") != 0) {
+            strcpy(pcb->state, "READY");
+            enqueue(pcb->pid);
+            }
+        }
+
+    current_time++;
+
 
     }
 
@@ -360,18 +361,21 @@ int main() {
     userInputMutex.semaphore = 1;
     userOutputMutex.semaphore = 1;
     fileMutex.semaphore = 1;
-    PCB processes[NUM_PROCESSES] = {
-        {1 ,           // Process ID
-   "READY",     // Process State.
-    0,        // Current Priority
-    0,       // Program Counter
-    0,     // Lower Bound of the process’ space in the memory
-    0,   // Upper Bound of the process’ space in the memory
-    0,  // Arrival Time
-    "Program_1.txt" }, // Filename
-        {2, "READY", 0, 0, 0, 0, 0, "Program_2.txt"},
-        {3, "READY", 0, 0, 0, 0, 0, "Program_3.txt"}
-        };
+    PCB processes[NUM_PROCESSES];
+
+
+    for (int i = 1; i < 4;i++) {
+        PCB pcb;
+        pcb.pid = i;
+        pcb.arrival_time = 0;
+        pcb.counter = 0;
+        pcb.priority = 0;
+        pcb.lower_bound = 0;
+        pcb.upper_bound = 0;
+        strcpy(pcb.state, "READY");
+        sprintf(pcb.filename, "Program_%d.txt", i);
+        processes[i - 1] = pcb;
+        }
 
     printf("Enter the time quantum: ");
     scanf("%d", &time_quantum);
