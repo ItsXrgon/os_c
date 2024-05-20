@@ -337,6 +337,9 @@ void run_scheduler(PCB processes[], int num_processes) {
 
     }
 
+// State to
+
+
 // Main function
 int main() {
     // Initialize memory
