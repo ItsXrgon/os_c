@@ -5,9 +5,7 @@
 #define MEMORY_SIZE 60
 #define MAX_INSTRUCTIONS 20
 #define MAX_PROCESSES 3
-
-
-#include <stdio.h>
+#define QUEUE_SIZE 10
 
 // Process Control Block (PCB)
 typedef struct {
@@ -29,12 +27,6 @@ typedef struct {
     MemoryWord memory_blocks[60];   // Memory divided into memory words
     } Memory;
 
-// Mutex
-typedef struct {
-    int is_locked;       // lock status
-    char resource[20];   // resource name
-    } Mutex;
-
 // Process
 typedef struct {
     int id;              // Process ID
@@ -48,12 +40,6 @@ typedef struct {
     int front, rear, size;
     unsigned capacity;
     } Queue;
-
-
-typedef struct {
-    char name[20];
-    char data[20];
-    } word;
 
 typedef struct {
     int locked;
@@ -75,6 +61,7 @@ Mutex userInputMutex;
 Mutex userOutputMutex;
 Mutex fileMutex;
 
+Memory memory;
 
 // Helper function to find a mutex based on the resource name
 Mutex* findMutex(char* resource) {
@@ -276,4 +263,10 @@ void printFromTo(int from, int to) {
         printf("%d\n", i);
         }
     semSignal("userOutput");
+    }
+
+
+int main() {
+
+    return 0;
     }
