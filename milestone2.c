@@ -2,6 +2,32 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MEMORY_SIZE 60
+#define NUM_PROCESSES 3
+#define QUEUE_SIZE 10
+
+
+int ready_queue[QUEUE_SIZE];
+int front = -1, rear = -1;
+
+enum State { READY, RUNNING, DEAD };
+
+typedef struct {
+    int pid;
+    enum State state;
+    int program_counter;
+    char program_file[20];
+    int variables[3];
+    int arrival_time;
+} Process;
+
+int memory[MEMORY_SIZE] = {0};
+int userInput = 1;
+int userOutput = 1;
+int file = 1;
+int current_time = 0;
+int time_quantum;
+
 // Program Syntax
 void write_file(const char* filename, const char* content) {
     FILE* file = fopen(filename, "w");
@@ -38,27 +64,6 @@ void assign(char* variable, char* value) {
 void print(char* str) {
     printf("%s\n", str);
 }
-
-#define MEMORY_SIZE 60
-#define NUM_PROCESSES 3
-
-enum State { READY, RUNNING, DEAD };
-
-typedef struct {
-    int pid;
-    enum State state;
-    int program_counter;
-    char program_file[20];
-    int variables[3];
-    int arrival_time;
-} Process;
-
-int memory[MEMORY_SIZE] = {0};
-int userInput = 1;
-int userOutput = 1;
-int file = 1;
-int current_time = 0;
-int time_quantum;
 
 void sem_wait(int* semaphore) {
     while (*semaphore <= 0) {
@@ -154,9 +159,7 @@ void execute_program(Process* process) {
     fclose(file);
 }
 
-#define QUEUE_SIZE 10
-int ready_queue[QUEUE_SIZE];
-int front = -1, rear = -1;
+
 
 void enqueue(int pid) {
     if ((rear + 1) % QUEUE_SIZE == front) {
