@@ -4,9 +4,8 @@
 
 #define MEMORY_SIZE 60
 #define NUM_PROCESSES 3
-#define TIME_QUANTUM 10
 
-enum State { READY, BLOCKED, RUNNING, DEAD };
+enum State { READY, RUNNING, DEAD };
 
 typedef struct {
     int pid;
@@ -131,73 +130,50 @@ void execute_program(Process* process) {
     FILE* file = fopen(process->program_file, "r");
     if (file == NULL) {
         printf("Error opening program file %s\n", process->program_file);
+        process->state = DEAD; // Mark process as dead if file can't be opened
         return;
     }
 
     char instruction[100];
     int time_spent = 0;
 
-    // Move to the program counter's position
     fseek(file, process->program_counter, SEEK_SET);
 
     while (fgets(instruction, sizeof(instruction), file) && time_spent < time_quantum) {
         execute_instruction(process, instruction);
         time_spent++;
-        process->program_counter = ftell(file);  // Update program counter
+        process->program_counter = ftell(file);
         print_memory();
+    }
+
+    if (feof(file)) {
+        process->state = DEAD;
     }
 
     fclose(file);
 }
 
 void run_scheduler(Process* processes, int num_processes) {
-    int all_dead;
-    Process* ready_queue[NUM_PROCESSES];
-    int queue_front = 0, queue_rear = 0;
-
-    // Initialize the ready queue
-    for (int i = 0; i < num_processes; i++) {
-        if (processes[i].arrival_time <= current_time) {
-            ready_queue[queue_rear++] = &processes[i];
-        }
-    }
-
     while (1) {
-        all_dead = 1;
+        int all_dead = 1;
+
         for (int i = 0; i < num_processes; i++) {
-            if (processes[i].state != DEAD) {
+            if (processes[i].state != DEAD && processes[i].arrival_time <= current_time) {
                 all_dead = 0;
-                break;
-            }
-        }
-        if (all_dead) {
-            break;
-        }
 
-        // Check for new arrivals
-        for (int i = 0; i < num_processes; i++) {
-            if (processes[i].arrival_time == current_time && processes[i].state == READY) {
-                ready_queue[queue_rear] = &processes[i];
-                queue_rear = (queue_rear + 1) % NUM_PROCESSES;
-            }
-        }
-
-        // Round Robin scheduling
-        if (queue_front != queue_rear) {
-            Process* process = ready_queue[queue_front];
-            queue_front = (queue_front + 1) % NUM_PROCESSES;
-
-            if (process->state != DEAD && process->arrival_time <= current_time) {
-                process->state = RUNNING;
-                printf("\nExecuting process %d\n", process->pid);
-                execute_program(process);
-
-                if (process->state != DEAD) {
-                    process->state = READY;
-                    ready_queue[queue_rear] = process;
-                    queue_rear = (queue_rear + 1) % NUM_PROCESSES;
+                if (processes[i].state == READY) {
+                    processes[i].state = RUNNING;
+                    printf("\nExecuting process %d\n", processes[i].pid);
+                    execute_program(&processes[i]);
+                    if (processes[i].state != DEAD) {
+                        processes[i].state = READY;
+                    }
                 }
             }
+        }
+
+        if (all_dead) {
+            break;
         }
 
         current_time++;
@@ -207,8 +183,8 @@ void run_scheduler(Process* processes, int num_processes) {
 int main() {
     Process processes[NUM_PROCESSES] = {
         { 1, READY, 0, "Program_1.txt", {0}, 0 },
-        { 2, READY, 0, "Program_2.txt", {0}, 0 },
-        { 3, READY, 0, "Program_3.txt", {0}, 0 }
+        { 2, READY, 0, "Program_2.txt", {0}, 10 },
+        { 3, READY, 0, "Program_3.txt", {0}, 20 }
     };
 
     printf("Enter the time quantum: ");
