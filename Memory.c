@@ -11,11 +11,20 @@ typedef struct {
 typedef struct {
     MemoryWord memory_blocks[60];   // Memory divided into memory words
     } Memory;
+typedef struct {
+    int pid;             // Process ID
+    char state[10];      // Process State
+    int priority;        // Current Priority
+    int counter;         // Program Counter
+    int lower_bound;     // Lower Bound of the process’ space in the memory
+    int upper_bound;     // Upper Bound of the process’ space in the memory
+    } PCB;
 
 
 // Global var for memory
 
 Memory memory;
+int mem_start = 0;
 
 // Function to initialize memory
 void initialize_memory() {
@@ -140,23 +149,58 @@ void execute_instruction(char* instruction) {
         }
     }
 
+//Function to write pcb to memory
+void write_pcb_to_memory(PCB* pcb) {
+    strcpy(memory.memory_blocks[mem_start].name, "PID");
+    sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->pid);
+    mem_start++;
+    strcpy(memory.memory_blocks[mem_start].name, "State");
+    strcpy(memory.memory_blocks[mem_start].data, pcb->state);
+    mem_start++;
+    strcpy(memory.memory_blocks[mem_start].name, "Priority");
+    sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->priority);
+    mem_start++;
+    strcpy(memory.memory_blocks[mem_start].name, "Counter");
+    sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->counter);
+    mem_start++;
+    strcpy(memory.memory_blocks[mem_start].name, "Lower_Bound");
+    sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->lower_bound);
+    mem_start++;
+    strcpy(memory.memory_blocks[mem_start].name, "Upper_Bound");
+    sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->upper_bound);
+    mem_start++;
+
+    }
+
 // Function to load a program
-void LoadProgram(char* filename) {
+void LoadProgram(char* filename, int pID) {
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
         printf("Error: File not found\n");
         return;
         }
+    PCB* pcb = (PCB*)malloc(sizeof(PCB));
+    pcb->pid = pID;
+    strcpy(pcb->state, "Ready");
+    pcb->counter = 0;
+    pcb->priority = 0;
+    pcb->lower_bound = mem_start;
     char instruction[100];
     int i = 0;
     while (fgets(instruction, 100, file)) {
         char instruction_name[100];
         sprintf(instruction_name, "Instruction_%d", i);
-        strcpy(memory.memory_blocks[i].name, instruction_name);
-        strcpy(memory.memory_blocks[i].data, instruction);
+        strcpy(memory.memory_blocks[mem_start].name, instruction_name);
+        strcpy(memory.memory_blocks[mem_start].data, instruction);
+        mem_start++;
         i++;
         }
     fclose(file);
+    pcb->upper_bound = mem_start;
+    mem_start = mem_start + 3;
+
+    // assign pcb to memory
+    write_pcb_to_memory(pcb);
     }
 
 // Function to excute a program in memory
@@ -174,7 +218,7 @@ int main() {
     initialize_memory();
 
     // Sample instructions
-    LoadProgram("Program_1.txt");
+    LoadProgram("Program_1.txt", 1);
 
     // Print memory
     print_memory();
