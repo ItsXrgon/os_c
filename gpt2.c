@@ -464,6 +464,11 @@ void execute_program(PCB* pcb)
         printf("Error: Process not found\n");
         return;
         }
+    if (strcmp(pcb->state, "DEAD") == 0 || strcmp(pcb->state, "BLOCKED") == 0)
+        {
+        return;
+        }
+
 
     char instruction[100];
     int time_spent = 0;
