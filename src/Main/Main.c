@@ -32,7 +32,7 @@ void initialize_process_table()
         processTable[i].upper_bound = -1;
         processTable[i].arrival_time = 0;
         char filename[100];
-        sprintf(filename, "/home/youssef/GUC/OS/M2/os_c/src/Program_%d.txt", i + 1);
+        sprintf(filename, "../src/Program_%d.txt", i + 1);
         strcpy(processTable[i].filename, filename);
         }
     }
