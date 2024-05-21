@@ -485,6 +485,9 @@ void execute_program(PCB* pcb)
             break;
         if (strcmp(pcb->state, "DEAD") == 0 || strcmp(pcb->state, "BLOCKED") == 0)
             break;
+        if (memory.memory_blocks[i].name[0] == '\0')
+            break;
+
         strcpy(instruction, memory.memory_blocks[i].data);
         printf("Executing instruction: %s\n", instruction);
         execute_instruction(instruction, pcb);
@@ -521,6 +524,7 @@ void run_scheduler(PCB processes[], int num_processes)
     {
     while (1)
         {
+        printf("\nTime: %d\n", current_time);
         add_arriving_processes(processes, num_processes);
 
         int pid = dequeue_ready();
