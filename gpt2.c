@@ -467,39 +467,33 @@ void LoadProgram(char* filename, PCB* pcb)
     }
 
 // Function to execute a program in memory
-void execute_program(PCB* pcb)
-    {
-    if (pcb == NULL)
-        {
+void execute_program(PCB* pcb) {
+    if (pcb == NULL) {
         printf("Error: Process not found\n");
         return;
         }
 
+    if (strcmp(pcb->state, "DEAD") == 0 || strcmp(pcb->state, "BLOCKED") == 0) {
+        return;
+        }
 
-
-    char instruction[100];
-    int time_spent = 0;
-    for (int i = pcb->lower_bound + pcb->counter; i < pcb->upper_bound; i++)
-        {
-        if (time_spent >= time_quantum)
-            break;
-        if (strcmp(pcb->state, "DEAD") == 0 || strcmp(pcb->state, "BLOCKED") == 0)
-            break;
-        if (memory.memory_blocks[i].name[0] == '\0')
-            break;
-
-        strcpy(instruction, memory.memory_blocks[i].data);
-        printf("Executing instruction: %s\n", instruction);
-        execute_instruction(instruction, pcb);
-        pcb->counter++;
-        time_spent++;
+    // Execute only one instruction per call
+    if (pcb->counter < pcb->upper_bound - pcb->lower_bound) {
+        int instruction_index = pcb->lower_bound + pcb->counter;
+        if (memory.memory_blocks[instruction_index].name[0] != '\0') {
+            char instruction[100];
+            strcpy(instruction, memory.memory_blocks[instruction_index].data);
+            printf("Executing instruction: %s\n", instruction);
+            execute_instruction(instruction, pcb);
+            pcb->counter++;
+            }
         }
 
     // Check if the program has finished execution
-    if (pcb->counter >= (pcb->upper_bound - pcb->lower_bound))
-        {
+    if (pcb->counter >= (pcb->upper_bound - pcb->lower_bound)) {
         strcpy(pcb->state, "DEAD");
         }
+
     update_Memory_PCB(pcb);
     }
 
@@ -531,10 +525,8 @@ void run_scheduler(PCB processes[], int num_processes)
         if (pid == -1) {
             // Check if all processes are dead
             int all_dead = 1;
-            for (int i = 0; i < num_processes; i++)
-                {
-                if (strcmp(processes[i].state, "DEAD") != 0)
-                    {
+            for (int i = 0; i < num_processes; i++) {
+                if (strcmp(processes[i].state, "DEAD") != 0) {
                     all_dead = 0;
                     break;
                     }
@@ -548,8 +540,7 @@ void run_scheduler(PCB processes[], int num_processes)
 
         PCB* process = &processes[pid - 1];
 
-        if (strcmp(process->state, "DEAD") == 0 || strcmp(process->state, "BLOCKED") == 0)
-            {
+        if (strcmp(process->state, "DEAD") == 0 || strcmp(process->state, "BLOCKED") == 0) {
             printf("Process %d is %s\n", process->pid, process->state);
             continue;
             }
@@ -560,10 +551,10 @@ void run_scheduler(PCB processes[], int num_processes)
             execute_program(process);
             }
 
-        if (strcmp(process->state, "DEAD") != 0 && strcmp(process->state, "BLOCKED") != 0)
-            {
+        if (strcmp(process->state, "DEAD") != 0 && strcmp(process->state, "BLOCKED") != 0) {
             enqueue_ready(process->pid);
             }
+
         current_time++;
         }
     }
