@@ -6,20 +6,17 @@
 #define MEMORY_SIZE 60
 #define QUEUE_SIZE 10
 
-
 // Memory
-typedef struct
-    {
+typedef struct {
     char name[20];  // Name of the variable or instruction
     char data[200]; // Data of the variable or instruction
     } MemoryWord;
 
-typedef struct
-    {
+typedef struct {
     MemoryWord memory_blocks[MEMORY_SIZE]; // Memory divided into memory words
     } Memory;
-typedef struct
-    {
+
+typedef struct {
     int pid;            // Process ID
     char state[20];     // Process State
     int counter;        // Program Counter
@@ -29,8 +26,7 @@ typedef struct
     char filename[100]; // Filename
     } PCB;
 
-typedef struct
-    {
+typedef struct {
     int owner_id;
     int locked;
     int blocked_queue[QUEUE_SIZE];
@@ -133,36 +129,30 @@ int dequeue_blocked(mutex* m) {
     return pid;
     }
 
-void update_Memory_PCB(PCB* pcb)
-    {
-    for (int i = pcb->upper_bound + 3; i < pcb->upper_bound + 8; i++)
-        {
+void update_Memory_PCB(PCB* pcb) {
+    for (int i = pcb->upper_bound + 3; i < pcb->upper_bound + 6; i++) {
         if (strcmp(memory.memory_blocks[i].name, "PID") == 0 && atoi(memory.memory_blocks[i].data) == pcb->pid) {
             strcpy(memory.memory_blocks[i + 1].data, pcb->state);
-            sprintf(memory.memory_blocks[i + 2].data, "%d", pcb->counter);
-            sprintf(memory.memory_blocks[i + 3].data, "%d", pcb->lower_bound);
-            sprintf(memory.memory_blocks[i + 4].data, "%d", pcb->upper_bound);
+            sprintf(memory.memory_blocks[i + 3].data, "%d", pcb->counter);
+            sprintf(memory.memory_blocks[i + 4].data, "%d", pcb->lower_bound);
+            sprintf(memory.memory_blocks[i + 5].data, "%d", pcb->upper_bound);
             }
         }
     }
+
 // Function to initialize memory
-void initialize_memory()
-    {
-    for (int i = 0; i < MEMORY_SIZE; i++)
-        {
+void initialize_memory() {
+    for (int i = 0; i < MEMORY_SIZE; i++) {
         memory.memory_blocks[i].name[0] = '\0';
         memory.memory_blocks[i].data[0] = '\0';
         }
     }
 
 // Function to print memory
-void print_memory()
-    {
+void print_memory() {
     printf("Memory: \n");
-    for (int i = 0; i < MEMORY_SIZE; i++)
-        {
-        if (memory.memory_blocks[i].name[0] != '\0')
-            {
+    for (int i = 0; i < MEMORY_SIZE; i++) {
+        if (memory.memory_blocks[i].name[0] != '\0') {
             printf("Name: %s  Value: %s\n", memory.memory_blocks[i].name, memory.memory_blocks[i].data);
             }
         }
@@ -178,21 +168,19 @@ char* read_file(char* filename) {
     fseek(file, 0, SEEK_END);
     long length = ftell(file);
     fseek(file, 0, SEEK_SET);
-    char* buffer = (char*)malloc(length);
+    char* buffer = (char*)malloc(length + 1);
     if (buffer) {
         fread(buffer, 1, length, file);
+        buffer[length] = '\0';
         }
     fclose(file);
     return buffer;
     }
 
 // Function to search for a variable in memory and return its data
-char* search_variable(PCB* pcb, char* name)
-    {
-    for (int i = pcb->upper_bound; i < pcb->upper_bound + 3; i++)
-        {
-        if (strcmp(memory.memory_blocks[i].name, name) == 0)
-            {
+char* search_variable(PCB* pcb, char* name) {
+    for (int i = pcb->upper_bound; i < pcb->upper_bound + 3; i++) {
+        if (strcmp(memory.memory_blocks[i].name, name) == 0) {
             return memory.memory_blocks[i].data;
             }
         }
@@ -200,33 +188,25 @@ char* search_variable(PCB* pcb, char* name)
     }
 
 // Function to assign value to a variable
-void assign(char* arg1, char* arg2, char* arg3, PCB* pcb)
-    {
+void assign(char* arg1, char* arg2, char* arg3, PCB* pcb) {
     int index = -1;
-    if (strcmp(arg2, "input") == 0)
-        {
+    if (strcmp(arg2, "input") == 0) {
         printf("Enter value for %s: ", arg1);
         scanf("%s", arg2);
-        if (strcmp(arg1, "a") == 0)
-            {
+        if (strcmp(arg1, "a") == 0) {
             index = pcb->upper_bound;
             }
-        else if (strcmp(arg1, "b") == 0)
-            {
+        else if (strcmp(arg1, "b") == 0) {
             index = pcb->upper_bound + 1;
             }
-        else if (strcmp(arg1, "c") == 0)
-            {
+        else if (strcmp(arg1, "c") == 0) {
             index = pcb->upper_bound + 2;
             }
-        if (index != -1)
-            {
+        if (index != -1) {
             strcpy(memory.memory_blocks[index].data, arg2);
             }
         }
-    else
-        {
-        char filename[100];
+    else {
         if (strcmp(arg2, "readFile") == 0) {
             char* filename = search_variable(pcb, arg3);
             if (filename == NULL) {
@@ -236,87 +216,50 @@ void assign(char* arg1, char* arg2, char* arg3, PCB* pcb)
             char* output = read_file(filename);
             printf("Output: %s\n", output);
             if (output != NULL) {
-                if (strcmp(arg1, "a") == 0)
-                    {
+                if (strcmp(arg1, "a") == 0) {
                     index = pcb->upper_bound;
                     }
-                else if (strcmp(arg1, "b") == 0)
-                    {
+                else if (strcmp(arg1, "b") == 0) {
                     index = pcb->upper_bound + 1;
                     }
-                else if (strcmp(arg1, "c") == 0)
-                    {
+                else if (strcmp(arg1, "c") == 0) {
                     index = pcb->upper_bound + 2;
                     }
-                if (index != -1)
-                    {
+                if (index != -1) {
                     strcpy(memory.memory_blocks[index].data, output);
                     }
+                free(output);
                 }
             }
         }
-
-
-
     }
 
 // Function to print a string
-void print(char* arg1, PCB* pcb)
-    {
+void print(char* arg1, PCB* pcb) {
     char* data = search_variable(pcb, arg1);
-    if (data != NULL)
-        {
+    if (data != NULL) {
         printf("%s\n", data);
         }
     }
 
 // Function to print a range of numbers
-void print_from_to(char* arg1, char* arg2, PCB* pcb)
-    {
+void print_from_to(char* arg1, char* arg2, PCB* pcb) {
     char* from = search_variable(pcb, arg1);
     char* to = search_variable(pcb, arg2);
-    if (from == NULL || to == NULL)
-        {
+    if (from == NULL || to == NULL) {
         printf("Invalid range\n");
         return;
         }
-
-    for (int i = atoi(from); i <= atoi(to); i++)
-        {
-        printf("%d\n", i);
+    int start = atoi(from);
+    int end = atoi(to);
+    if (start > end) {
+        printf("Invalid range\n");
+        return;
         }
-    }
-
-// Function to write data to a file
-void write_file(char* arg1, char* arg2, PCB* pcb)
-    {
-    char* filename = search_variable(pcb, arg1);
-    char* data = search_variable(pcb, arg2);
-    if (data != NULL && filename != NULL)
-        {
-        FILE* file = fopen(filename, "w");
-        if (file != NULL)
-            {
-            fputs(data, file);
-            fclose(file);
-            }
+    for (int i = start; i <= end; i++) {
+        printf("%d ", i);
         }
-    }
-
-mutex* chooseMutex(char* arg1) {
-    if (strcmp(arg1, "userInput") == 0) {
-        return &userInputMutex;
-        }
-    else if (strcmp(arg1, "userOutput") == 0) {
-        return &userOutputMutex;
-        }
-    else if (strcmp(arg1, "file") == 0) {
-        return &fileMutex;
-        }
-    else {
-        printf("Invalid mutex\n");
-        return NULL;
-        }
+    printf("\n");
     }
 
 // Function to lock a mutex
@@ -348,104 +291,87 @@ void semSignal(mutex* m, PCB* pcb) {
         m->owner_id = 0;
         }
     }
-// Function to execute an instruction
-void execute_instruction(char* instruction, PCB* pcb)
-    {
-    char command[20], arg1[20], arg2[20], arg3[20];
-    if (sscanf(instruction, "%s %s %s %s", command, arg1, arg2, arg3) < 1)
-        {
-        return;
-        }
 
-    if (strcmp(command, "assign") == 0)
-        {
+// Function to execute an instruction
+void execute_instruction(char* instruction, PCB* pcb) {
+    char* token = strtok(instruction, " ");
+    if (strcmp(token, "assign") == 0) {
+        char* arg1 = strtok(NULL, " ");
+        char* arg2 = strtok(NULL, " ");
+        char* arg3 = strtok(NULL, " ");
         assign(arg1, arg2, arg3, pcb);
         }
-    else if (strcmp(command, "print") == 0)
-        {
+    else if (strcmp(token, "print") == 0) {
+        char* arg1 = strtok(NULL, " ");
         print(arg1, pcb);
         }
-    else if (strcmp(command, "printFromTo") == 0)
-        {
+    else if (strcmp(token, "printFromTo") == 0) {
+        char* arg1 = strtok(NULL, " ");
+        char* arg2 = strtok(NULL, " ");
         print_from_to(arg1, arg2, pcb);
         }
-    else if (strcmp(command, "writeFile") == 0)
-        {
-        write_file(arg1, arg2, pcb);
+    else if (strcmp(token, "semWait") == 0) {
+        char* arg1 = strtok(NULL, " ");
+        if (strcmp(arg1, "userInput") == 0) {
+            semWait(&userInputMutex, pcb);
+            }
+        else if (strcmp(arg1, "userOutput") == 0) {
+            semWait(&userOutputMutex, pcb);
+            }
+        else if (strcmp(arg1, "file") == 0) {
+            semWait(&fileMutex, pcb);
+            }
         }
-    else if (strcmp(command, "semWait") == 0)
-        {
-        mutex* m = chooseMutex(arg1);
-        semWait(m, pcb);
+    else if (strcmp(token, "semSignal") == 0) {
+        char* arg1 = strtok(NULL, " ");
+        if (strcmp(arg1, "userInput") == 0) {
+            semSignal(&userInputMutex, pcb);
+            }
+        else if (strcmp(arg1, "userOutput") == 0) {
+            semSignal(&userOutputMutex, pcb);
+            }
+        else if (strcmp(arg1, "file") == 0) {
+            semSignal(&fileMutex, pcb);
+            }
         }
-    else if (strcmp(command, "semSignal") == 0)
-        {
-        mutex* m = chooseMutex(arg1);
-        semSignal(m, pcb);
-        }
-    else
-        {
+    else {
         printf("Invalid instruction\n");
         }
     }
 
-// Function to write PCB to memory
-void write_pcb_to_memory(PCB* pcb)
-    {
-    strcpy(memory.memory_blocks[mem_start].name, "PID");
-    sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->pid);
-    mem_start++;
-    strcpy(memory.memory_blocks[mem_start].name, "State");
-    strcpy(memory.memory_blocks[mem_start].data, pcb->state);
-    mem_start++;
-    strcpy(memory.memory_blocks[mem_start].name, "Counter");
-    sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->counter);
-    mem_start++;
-    strcpy(memory.memory_blocks[mem_start].name, "Lower_Bound");
-    sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->lower_bound);
-    mem_start++;
-    strcpy(memory.memory_blocks[mem_start].name, "Upper_Bound");
-    sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->upper_bound);
-    mem_start++;
-    }
-
-// Function to load a program
-void LoadProgram(char* filename, PCB* pcb)
-    {
-    FILE* file = fopen(filename, "r");
-    if (file == NULL)
-        {
+void load_program_to_memory(PCB* pcb) {
+    FILE* file = fopen(pcb->filename, "r");
+    if (file == NULL) {
         printf("Error: File not found\n");
         return;
         }
-    strcpy(pcb->state, "READY");
-    pcb->counter = 0;
-    pcb->lower_bound = mem_start;
-    char instruction[100];
-    int i = 0;
-    while (fgets(instruction, 100, file))
-        {
-        char instruction_name[100];
-        sprintf(instruction_name, "Instruction_%d", i);
-        strcpy(memory.memory_blocks[mem_start].name, instruction_name);
-        strcpy(memory.memory_blocks[mem_start].data, instruction);
+    char line[200];
+    int counter = 0;
+    while (fgets(line, sizeof(line), file)) {
+        line[strcspn(line, "\n")] = 0; // Remove newline character
+        strcpy(memory.memory_blocks[mem_start].name, "");
+        strcpy(memory.memory_blocks[mem_start].data, line);
         mem_start++;
-        i++;
+        counter++;
         }
     fclose(file);
+    pcb->lower_bound = mem_start - counter;
     pcb->upper_bound = mem_start;
-    strcpy(memory.memory_blocks[mem_start].name, "a");
-    mem_start++;
-    strcpy(memory.memory_blocks[mem_start].name, "b");
-    mem_start++;
-    strcpy(memory.memory_blocks[mem_start].name, "c");
-    mem_start++;
 
-    // Assign PCB to memory
-    write_pcb_to_memory(pcb);
+    // Store PCB in memory
+    sprintf(memory.memory_blocks[pcb->upper_bound + 3].name, "PID");
+    sprintf(memory.memory_blocks[pcb->upper_bound + 3].data, "%d", pcb->pid);
+    sprintf(memory.memory_blocks[pcb->upper_bound + 4].name, "State");
+    strcpy(memory.memory_blocks[pcb->upper_bound + 4].data, pcb->state);
+    sprintf(memory.memory_blocks[pcb->upper_bound + 5].name, "Counter");
+    sprintf(memory.memory_blocks[pcb->upper_bound + 5].data, "%d", pcb->counter);
+    sprintf(memory.memory_blocks[pcb->upper_bound + 6].name, "LowerBound");
+    sprintf(memory.memory_blocks[pcb->upper_bound + 6].data, "%d", pcb->lower_bound);
+    sprintf(memory.memory_blocks[pcb->upper_bound + 7].name, "UpperBound");
+    sprintf(memory.memory_blocks[pcb->upper_bound + 7].data, "%d", pcb->upper_bound);
     }
 
-// Function to execute a program in memory
+// Function to execute a program
 void execute_program(PCB* pcb) {
     if (pcb == NULL) {
         printf("Error: Process not found\n");
@@ -456,47 +382,41 @@ void execute_program(PCB* pcb) {
         return;
         }
 
-    // Execute only one instruction per call
-    if (pcb->counter < pcb->upper_bound - pcb->lower_bound) {
-        int instruction_index = pcb->lower_bound + pcb->counter;
-        if (memory.memory_blocks[instruction_index].name[0] != '\0') {
-            char instruction[100];
-            strcpy(instruction, memory.memory_blocks[instruction_index].data);
-            printf("Executing instruction: %s\n", instruction);
-            execute_instruction(instruction, pcb);
-            pcb->counter++;
+    for (int i = 0; i < time_quantum; i++) {
+        if (pcb->counter < pcb->upper_bound - pcb->lower_bound) {
+            int instruction_index = pcb->lower_bound + pcb->counter;
+            if (memory.memory_blocks[instruction_index].name[0] != '\0') {
+                char instruction[100];
+                strcpy(instruction, memory.memory_blocks[instruction_index].data);
+                printf("Executing instruction: %s\n", instruction);
+                execute_instruction(instruction, pcb);
+                pcb->counter++;
+                }
+            }
+
+        // Check if the program has finished execution
+        if (pcb->counter >= (pcb->upper_bound - pcb->lower_bound)) {
+            strcpy(pcb->state, "DEAD");
+            }
+
+        update_Memory_PCB(pcb);
+        if (strcmp(pcb->state, "BLOCKED") == 0) {
+            break;
             }
         }
-
-    // Check if the program has finished execution
-    if (pcb->counter >= (pcb->upper_bound - pcb->lower_bound)) {
-        strcpy(pcb->state, "DEAD");
-        }
-
-    update_Memory_PCB(pcb);
     }
-
-
 
 // Function to add arriving processes to the ready queue
-void add_arriving_processes(PCB processes[], int num_processes)
-    {
-    for (int i = 0; i < num_processes; i++)
-        {
-        if (strcmp(processes[i].state, "READY") == 0 && processes[i].arrival_time == current_time)
-            {
+void add_arriving_processes(PCB processes[], int num_processes) {
+    for (int i = 0; i < num_processes; i++) {
+        if (processes[i].arrival_time == current_time && strcmp(processes[i].state, "READY") == 0) {
             enqueue_ready(processes[i].pid);
-            LoadProgram(processes[i].filename, processes + i);
             }
         }
     }
 
-
-// Function to run the scheduler
-void run_scheduler(PCB processes[], int num_processes)
-    {
-    while (1)
-        {
+void run_scheduler(PCB processes[], int num_processes) {
+    while (1) {
         printf("\nTime: %d\n", current_time);
         add_arriving_processes(processes, num_processes);
 
@@ -538,9 +458,7 @@ void run_scheduler(PCB processes[], int num_processes)
         }
     }
 
-// Main function
-int main()
-    {
+int main() {
     // Initialize memory
     initialize_memory();
     userInputMutex.locked = 0;
@@ -549,13 +467,13 @@ int main()
     PCB processes[NUM_PROCESSES] = {
         {1, "READY", 0, 0, 0, 0, "Program_1.txt"},
         {2, "READY", 0, 0, 0, 0, "Program_2.txt"},
-        {3, "READY", 0, 0, 0, 0, "Program_3.txt"} };
+        {3, "READY", 0, 0, 0, 0, "Program_3.txt"}
+        };
 
     printf("Enter the time quantum: ");
     scanf("%d", &time_quantum);
 
-    for (int i = 0; i < NUM_PROCESSES; i++)
-        {
+    for (int i = 0; i < NUM_PROCESSES; i++) {
         printf("Enter arrival time for process %d: ", i + 1);
         scanf("%d", &((processes + i)->arrival_time));
         }
