@@ -30,11 +30,12 @@ typedef struct
 
 typedef struct
 {
+    int semaphore;
     int owner_id;
-    int locked;
     int blocked_queue[QUEUE_SIZE];
     int rear_blocked;
     int front_blocked;
+    int locked;
 } mutex;
 
 mutex userInputMutex;
@@ -337,11 +338,10 @@ mutex *chooseMutex(char *arg1)
 // Function to lock a mutex
 void semWait(mutex *m, PCB *pcb)
 {
-    if (!m->locked)
+    if (!m->semaphore)
     {
-        m->locked = 1;
+        m->semaphore = 1;
         m->owner_id = pcb->pid;
-        printf("Process %d has taken the mutex\n", pcb->pid);
     }
     else
     {
@@ -361,14 +361,13 @@ void semWait(mutex *m, PCB *pcb)
     }
 }
 
-// Function to unlock a mutex
 void semSignal(mutex *m, PCB *pcb)
 {
     if (m->owner_id == pcb->pid)
     {
         if (isBlockedQueueEmpty(m))
         {
-            m->locked = 0;
+            m->semaphore = 0;
             m->owner_id = -1;
             printf("Mutex is unlocked by process %d\n", pcb->pid);
         }
