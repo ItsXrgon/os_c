@@ -11,8 +11,11 @@ include_directories(Headers)
 
 # Add source files
 set(SOURCES
+    src/Instructions/Instructions.c
     src/Main/Main.c
+    src/Memory/memory.c
     src/queue/Queue.c
+    src/Scheduler/scheduler.c
     # Add more source files here if needed
 )
 
