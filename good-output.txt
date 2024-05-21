@@ -1,0 +1,202 @@
+Enter the time quantum: 10
+Enter arrival time for process 1:1
+Enter arrival time for process 2:5
+Enter arrival time for process 3:12
+Starting scheduling
+Current time: 0
+
+Current time: 1
+
+Enqueued process with PID: 1
+Process 1 has arrived
+Dequeued process with PID: 1
+Process 1 is now RUNNING
+Executing instruction: semWait userInput
+
+Process with PID: 1 has the mutex
+Current time: 2
+
+Executing instruction: assign a input
+
+Enter value for a: 1
+Current time: 3
+
+Executing instruction: assign b input
+
+Enter value for b: 1
+Current time: 4
+
+Executing instruction: semSignal userInput
+
+Mutex is now available
+Current time: 5
+
+Enqueued process with PID: 2
+Process 2 has arrived
+Executing instruction: semWait userOutput
+
+Process with PID: 1 has the mutex
+Current time: 6
+
+Executing instruction: printFromTo a b
+
+1
+Current time: 7
+
+Executing instruction: semSignal userOutput
+Mutex is now available
+Process 1 is now TERMINATED
+Current time: 8
+
+Dequeued process with PID: 2
+Process 2 is now RUNNING
+Executing instruction: semWait userInput
+
+Process with PID: 2 has the mutex
+Current time: 9
+
+Executing instruction: assign a input
+
+Enter value for a: 1
+Current time: 10
+
+Executing instruction: assign b input
+
+Enter value for b: 1
+Current time: 11
+
+Executing instruction: semSignal userInput
+
+Mutex is now available
+Current time: 12
+
+Enqueued process with PID: 3
+Process 3 has arrived
+Executing instruction: semWait file
+
+Process with PID: 2 has the mutex
+Current time: 13
+
+Executing instruction: writeFile a b
+
+Current time: 14
+
+Executing instruction: semSignal file
+Mutex is now available
+Process 2 is now TERMINATED
+Current time: 15
+
+Dequeued process with PID: 3
+Process 3 is now RUNNING
+Executing instruction: semWait userInput
+
+Process with PID: 3 has the mutex
+Current time: 16
+
+Executing instruction: assign a input
+
+Enter value for a: 1
+Current time: 17
+
+Executing instruction: semSignal userInput
+
+Mutex is now available
+Current time: 18
+
+Executing instruction: semWait file
+
+Process with PID: 3 has the mutex
+Current time: 19
+
+Executing instruction: assign b readFile a
+
+Output: 1
+Current time: 20
+
+Executing instruction: semSignal file
+
+Mutex is now available
+Current time: 21
+
+Executing instruction: semWait userOutput
+
+Process with PID: 3 has the mutex
+Current time: 22
+
+Executing instruction: print b
+
+1
+Current time: 23
+
+Executing instruction: semSignal userOutput
+Mutex is now available
+Process 3 is now TERMINATED
+All processes have terminated
+Memory: 
+Name: Instruction_0  Value: semWait userInput
+
+Name: Instruction_1  Value: assign a input
+
+Name: Instruction_2  Value: assign b input
+
+Name: Instruction_3  Value: semSignal userInput
+
+Name: Instruction_4  Value: semWait userOutput
+
+Name: Instruction_5  Value: printFromTo a b
+
+Name: Instruction_6  Value: semSignal userOutput
+Name: a  Value: 1
+Name: b  Value: 1
+Name: c  Value: 
+Name: PID  Value: 1
+Name: State  Value: TERMINATED
+Name: Counter  Value: 7
+Name: Lower_Bound  Value: 0
+Name: Upper_Bound  Value: 7
+Name: Instruction_0  Value: semWait userInput
+
+Name: Instruction_1  Value: assign a input
+
+Name: Instruction_2  Value: assign b input
+
+Name: Instruction_3  Value: semSignal userInput
+
+Name: Instruction_4  Value: semWait file
+
+Name: Instruction_5  Value: writeFile a b
+
+Name: Instruction_6  Value: semSignal file
+Name: a  Value: 1
+Name: b  Value: 1
+Name: c  Value: 
+Name: PID  Value: 2
+Name: State  Value: TERMINATED
+Name: Counter  Value: 7
+Name: Lower_Bound  Value: 15
+Name: Upper_Bound  Value: 22
+Name: Instruction_0  Value: semWait userInput
+
+Name: Instruction_1  Value: assign a input
+
+Name: Instruction_2  Value: semSignal userInput
+
+Name: Instruction_3  Value: semWait file
+
+Name: Instruction_4  Value: assign b readFile a
+
+Name: Instruction_5  Value: semSignal file
+
+Name: Instruction_6  Value: semWait userOutput
+
+Name: Instruction_7  Value: print b
+
+Name: Instruction_8  Value: semSignal userOutput
+Name: a  Value: 1
+Name: b  Value: 1
+Name: c  Value: 
+Name: PID  Value: 3
+Name: State  Value: TERMINATED
+Name: Counter  Value: 9
+Name: Lower_Bound  Value: 30
+Name: Upper_Bound  Value: 39
