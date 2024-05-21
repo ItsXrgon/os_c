@@ -321,31 +321,39 @@ mutex* chooseMutex(char* arg1) {
 
 // Function to lock a mutex
 void semWait(mutex* m, PCB* pcb) {
-    if (m->locked) {
-        strcpy(pcb->state, "BLOCKED");
-        enqueue_blocked(pcb->pid, m);
-        }
-    else {
+    if (!m->locked) {
         m->locked = 1;
         m->owner_id = pcb->pid;
+        printf("Process %d has taken the mutex\n", pcb->pid);
+        }
+    else {
+        strcpy(pcb->state, "BLOCKED");
+        update_Memory_PCB(pcb);
+        enqueue_blocked(pcb->pid, m);
+        printf("Process %d is blocked on the mutex\n", pcb->pid);
         }
     }
 
 // Function to unlock a mutex
 void semSignal(mutex* m, PCB* pcb) {
-    if (m->owner_id != pcb->pid) {
-        printf("Error: Mutex not owned by process %d\n", pcb->pid);
-        return;
-        }
-    if (!isBlockedQueueEmpty(m)) {
-        int pid = dequeue_blocked(m);
-        PCB* process = &pcb[pid - 1];
-        strcpy(process->state, "READY");
-        enqueue_ready(pid);
+    if (m->owner_id == pcb->pid) {
+        if (isBlockedQueueEmpty(m)) {
+            m->locked = 0;
+            m->owner_id = -1;
+            printf("Mutex is unlocked by process %d\n", pcb->pid);
+            }
+        else {
+            int next_pid = dequeue_blocked(m);
+            if (next_pid != -1) {
+                strcpy(pcb->state, "READY");
+                update_Memory_PCB(pcb);
+                enqueue_ready(next_pid);
+                printf("Mutex ownership transferred to process %d\n", next_pid);
+                }
+            }
         }
     else {
-        m->locked = 0;
-        m->owner_id = 0;
+        printf("Process %d cannot signal the mutex it does not own\n", pcb->pid);
         }
     }
 // Function to execute an instruction
