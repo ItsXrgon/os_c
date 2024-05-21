@@ -4,14 +4,20 @@
 #include "../Headers/queue.h"
 #include "../Headers/structs.h"
 
-#define str(x) #x
-#define xstr(x) str(x)
-
-
 
 // Global variables for memory and time
 Memory memory;
 int mem_start = 0;
+
+
+// Function to convert from enum to string
+const char* const States[] = {
+    [READY] = "READY",
+    [NEW] = "NEW",
+    [RUNNING] = "RUNNING",
+    [BLOCKED] = "BLOCKED",
+    [TERMINATED] = "TERMINATED"
+    };
 
 
 void update_Memory_PCB(PCB* pcb)
@@ -20,7 +26,7 @@ void update_Memory_PCB(PCB* pcb)
         {
         if (strcmp(memory.memory_blocks[i].name, "PID") == 0 && atoi(memory.memory_blocks[i].data) == pcb->pid)
             {
-            sprintf(memory.memory_blocks[i + 1].data, "%s", str(pcb->state));
+            strcpy(memory.memory_blocks[i + 1].data, States[pcb->state]);
             sprintf(memory.memory_blocks[i + 2].data, "%d", pcb->counter);
             sprintf(memory.memory_blocks[i + 3].data, "%d", pcb->lower_bound);
             sprintf(memory.memory_blocks[i + 4].data, "%d", pcb->upper_bound);
@@ -72,7 +78,7 @@ void write_pcb_to_memory(PCB* pcb)
     sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->pid);
     mem_start++;
     strcpy(memory.memory_blocks[mem_start].name, "State");
-    strcpy(memory.memory_blocks[mem_start].data, str(pcb->state));
+    strcpy(memory.memory_blocks[mem_start].data, States[pcb->state]);
     mem_start++;
     strcpy(memory.memory_blocks[mem_start].name, "Counter");
     sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->counter);

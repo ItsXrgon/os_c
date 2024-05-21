@@ -171,10 +171,12 @@ void write_file(char* arg1, char* arg2, PCB* pcb)
 void semWait(Mutex* m, PCB* pcb) {
     if (m->value > 0) {
         m->value--;
+        printf("Process with PID: %d has the mutex\n", pcb->pid);
         }
     else {
         pcb->state = BLOCKED;
         enqueue(&m->blockedQueue, pcb);
+        printf("Process with PID: %d is blocked\n", pcb->pid);
         }
     }
 
@@ -183,9 +185,11 @@ void semSignal(Mutex* m) {
         PCB* pcb = dequeue(&m->blockedQueue);
         pcb->state = READY;
         enqueue(&readyQueue, pcb);
+        printf("Process with PID: %d is now READY\n", pcb->pid);
         }
     else {
         m->value++;
+        printf("Mutex is now available\n");
         }
     }
 
@@ -201,22 +205,18 @@ void execute_instruction(char* instruction, PCB* pcb)
     if (strcmp(command, "assign") == 0)
         {
         assign(arg1, arg2, arg3, pcb);
-        pcb->state = READY;
         }
     else if (strcmp(command, "print") == 0)
         {
         print(arg1, pcb);
-        pcb->state = READY;
         }
     else if (strcmp(command, "printFromTo") == 0)
         {
         print_from_to(arg1, arg2, pcb);
-        pcb->state = READY;
         }
     else if (strcmp(command, "writeFile") == 0)
         {
         write_file(arg1, arg2, pcb);
-        pcb->state = READY;
         }
     else if (strcmp(command, "semWait") == 0)
         {

@@ -75,7 +75,7 @@ int main()
     // Get arrival time for each process
     for (int i = 0; i < NUM_PROCESSES; i++)
         {
-        printf("Enter arrival time for process %d: ", i + 1);
+        printf("Enter arrival time for process %d:", i + 1);
         scanf("%d", &processTable[i].arrival_time);
         }
 

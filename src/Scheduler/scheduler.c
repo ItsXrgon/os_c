@@ -101,7 +101,7 @@ void schedule(PCB processes[], int num_processes) {
             execute_program(currentProcess);
             timeSlice++;
 
-            if (timeSlice >= time_quantum) {
+            if (timeSlice > time_quantum) {
                 currentProcess->state = READY;
                 enqueue(&readyQueue, currentProcess);
                 printf("Process %d is now READY\n", currentProcess->pid);
@@ -117,5 +117,9 @@ void schedule(PCB processes[], int num_processes) {
             }
 
         current_time++;
+        }
+    printf("All processes have terminated\n");
+    for (int i = 0; i < num_processes; i++) {
+        update_Memory_PCB(processes + i);
         }
     }
