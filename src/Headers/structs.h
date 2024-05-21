@@ -4,7 +4,7 @@
 #define MEMORY_SIZE 60
 #define MAX_PROCESSES 10
 
-typedef enum { NEW, READY, RUNNING, BLOCKED, TERMINATED } ProcessState;
+typedef enum { READY, NEW, RUNNING, BLOCKED, TERMINATED } ProcessState;
 typedef struct
     {
     int pid;            // Process ID

@@ -10,7 +10,7 @@ void execute_program(PCB* pcb);
 void add_arriving_processes(PCB processes[], int num_processes);
 
 void schedule(PCB processes[], int num_processes);
-void updatePCB(PCB* pcb);
+void Increment_counter(PCB* pcb);
 int All_Terminated(PCB processes[], int num_processes);
 
 #endif

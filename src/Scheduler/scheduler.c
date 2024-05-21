@@ -10,8 +10,6 @@ extern Memory memory;
 extern int current_time;
 extern Queue readyQueue;
 extern int time_quantum;
-extern PCB processTable[MAX_PROCESSES];
-
 
 void update_PCB(PCB* pcb) {
     if (pcb == NULL) {
@@ -22,6 +20,9 @@ void update_PCB(PCB* pcb) {
         enqueue(&readyQueue, pcb);
         }
     }
+void Increment_counter(PCB* pcb) {
+    pcb->counter++;
+    }
 
 // Function to execute a program in memory
 void execute_program(PCB* pcb)
@@ -29,6 +30,17 @@ void execute_program(PCB* pcb)
     if (pcb == NULL)
         {
         printf("Error: Process not found\n");
+        return;
+        }
+
+    if (pcb->state == TERMINATED || pcb->state == BLOCKED)
+        {
+        return;
+        }
+    // Check if the program has finished execution
+    if (pcb->counter >= pcb->upper_bound)
+        {
+        pcb->state = TERMINATED;
         return;
         }
 
@@ -47,41 +59,36 @@ void execute_program(PCB* pcb)
     }
 
 // Function to add arriving processes to the ready queue
-void add_arriving_processes()
+void add_arriving_processes(PCB processes[], int num_processes)
     {
-    for (int i = 0; i < MAX_PROCESSES; i++)
+    for (int i = 0; i < num_processes; i++)
         {
-        if (processTable[i].state == NEW && processTable[i].arrival_time == current_time)
+        if (processes[i].state == NEW && processes[i].arrival_time == current_time)
             {
-            LoadProgram(processTable[i].filename, processTable + i);
-            enqueue(&readyQueue, processTable + i);
-            processTable[i].state = READY;
-            printf("Process %d has arrived\n", processTable[i].pid);
+            LoadProgram(processes[i].filename, processes + i);
+            enqueue(&readyQueue, processes + i);
+            printf("Process %d has arrived\n", processes[i].pid);
             }
         }
     }
-void updatePCB(PCB* pcb) {
-    pcb->counter++;
-    }
 
-int All_Terminated() {
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        if (processTable[i].state != TERMINATED) {
+int All_Terminated(PCB processes[], int num_processes) {
+    for (int i = 0; i < num_processes; i++) {
+        if (processes[i].state != TERMINATED) {
             return 0;
             }
         }
-    printf("All processes have terminated\n");
     return 1;
     }
 
-void schedule() {
+void schedule(PCB processes[], int num_processes) {
     PCB* currentProcess = NULL;
     int timeSlice = 0;
     printf("Starting scheduling\n");
-    while (All_Terminated() == 0 || !isQueueEmpty(&readyQueue)) {
-        printf("Current time: %d\n \n", current_time);
-        add_arriving_processes();
-        if (currentProcess == NULL || currentProcess->state != READY) {
+    while (All_Terminated(processes, num_processes) == 0) {
+        printf("Current time: %d\n\n", current_time);
+        add_arriving_processes(processes, num_processes);
+        if (currentProcess == NULL || currentProcess->state != RUNNING) {
             if (!isQueueEmpty(&readyQueue)) {
                 currentProcess = dequeue(&readyQueue);
                 currentProcess->state = RUNNING;
@@ -91,9 +98,7 @@ void schedule() {
             }
 
         if (currentProcess != NULL) {
-            currentProcess->state = RUNNING;
             execute_program(currentProcess);
-            updatePCB(currentProcess);
             timeSlice++;
 
             if (timeSlice >= time_quantum) {
