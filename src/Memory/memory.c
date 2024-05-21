@@ -4,6 +4,9 @@
 #include "../Headers/queue.h"
 #include "../Headers/structs.h"
 
+#define str(x) #x
+#define xstr(x) str(x)
+
 
 
 // Global variables for memory and time
@@ -17,7 +20,7 @@ void update_Memory_PCB(PCB* pcb)
         {
         if (strcmp(memory.memory_blocks[i].name, "PID") == 0 && atoi(memory.memory_blocks[i].data) == pcb->pid)
             {
-            strcpy(memory.memory_blocks[i + 1].data, pcb->state);
+            sprintf(memory.memory_blocks[i + 1].data, "%s", str(pcb->state));
             sprintf(memory.memory_blocks[i + 2].data, "%d", pcb->counter);
             sprintf(memory.memory_blocks[i + 3].data, "%d", pcb->lower_bound);
             sprintf(memory.memory_blocks[i + 4].data, "%d", pcb->upper_bound);
@@ -69,7 +72,7 @@ void write_pcb_to_memory(PCB* pcb)
     sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->pid);
     mem_start++;
     strcpy(memory.memory_blocks[mem_start].name, "State");
-    strcpy(memory.memory_blocks[mem_start].data, pcb->state);
+    strcpy(memory.memory_blocks[mem_start].data, str(pcb->state));
     mem_start++;
     strcpy(memory.memory_blocks[mem_start].name, "Counter");
     sprintf(memory.memory_blocks[mem_start].data, "%d", pcb->counter);
@@ -92,7 +95,7 @@ void LoadProgram(char* filename, PCB* pcb)
         printf("Error: File not found\n");
         return;
         }
-    strcpy(pcb->state, "READY");
+    pcb->state = READY;
     pcb->counter = 0;
     pcb->lower_bound = mem_start;
     char instruction[100];

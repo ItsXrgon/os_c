@@ -1,10 +1,15 @@
 #ifndef QUEUE_H
 #define QUEUE_H
 
-int isFull(int* front, int* rear);
-int isEmpty(int* front, int* rear);
-void enqueue(int* value, int myQueue[], int* front, int* rear);
-int dequeue(int myQueue[], int* front, int* rear);
-void display(int myQueue[], int* front, int* rear);
-int ifExists(int myQueue[], int* front, int* rear, int value);
+#include "structs.h"
+
+void initQueue(Queue* q);
+
+void enqueue(Queue* q, PCB* pcb);
+
+PCB* dequeue(Queue* q);
+
+int isQueueEmpty(Queue* q);
+
+
 #endif

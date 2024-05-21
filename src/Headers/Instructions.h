@@ -5,9 +5,9 @@
 #include "structs.h"
 
 
-mutex* chooseMutex(char* arg1);
+Mutex* chooseMutex(char* arg1);
 
-void initialize_mutex();
+void initMutex(Mutex* m);
 
 char* read_file(char* filename);
 
@@ -19,9 +19,9 @@ void print_from_to(char* arg1, char* arg2, PCB* pcb);
 
 void write_file(char* arg1, char* arg2, PCB* pcb);
 
-void semWait(mutex* m, PCB* pcb);
+void semWait(Mutex* m, PCB* pcb);
 
-void semSignal(mutex* m, PCB* pcb);
+void semSignal(Mutex* m, PCB* pcb);
 
 void execute_instruction(char* instruction, PCB* pcb);
 

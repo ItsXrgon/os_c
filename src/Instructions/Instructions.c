@@ -7,25 +7,26 @@
 
 
 extern Memory memory;
+extern Queue readyQueue;
 
-mutex userInputMutex;
-mutex userOutputMutex;
-mutex fileMutex;
+extern Mutex userInput;
+extern Mutex userOutput;
+extern Mutex file;
 
 
-mutex* chooseMutex(char* arg1)
+Mutex* chooseMutex(char* arg1)
     {
     if (strcmp(arg1, "userInput") == 0)
         {
-        return &userInputMutex;
+        return &userInput;
         }
     else if (strcmp(arg1, "userOutput") == 0)
         {
-        return &userOutputMutex;
+        return &userOutput;
         }
     else if (strcmp(arg1, "file") == 0)
         {
-        return &fileMutex;
+        return &file;
         }
     else
         {
@@ -34,22 +35,9 @@ mutex* chooseMutex(char* arg1)
         }
     }
 
-void initialize_mutex()
-    {
-    userInputMutex.locked = 0;
-    userOutputMutex.locked = 0;
-    fileMutex.locked = 0;
-
-    userInputMutex.front = -1;
-    userInputMutex.rear = -1;
-
-    userOutputMutex.front = -1;
-    userOutputMutex.rear = -1;
-
-    fileMutex.front = -1;
-    fileMutex.rear = -1;
-
-
+void initMutex(Mutex* m) {
+    m->value = 1;
+    initQueue(&m->blockedQueue);
     }
 
 // Function to read data from a file
@@ -179,65 +167,26 @@ void write_file(char* arg1, char* arg2, PCB* pcb)
         }
     }
 
-// Function to lock a mutex
-void semWait(mutex* m, PCB* pcb)
-    {
-    if (m->locked)
-        {
-        if (m->owner_id == pcb->pid)
-            {
-            printf("Process %d already owns the mutex\n", pcb->pid);
-            return;
-            }
-        if (ifExists(m->blocked_queue, &(m->front), &(m->rear), pcb->pid))
-            {
-            printf("Process %d is already blocked\n", pcb->pid);
-            return;
-            }
-        else {
-            enqueue(&(pcb->pid), m->blocked_queue, &(m->front), &(m->rear));
-            strcpy(pcb->state, "BLOCKED");
-            printf("Process %d is blocked\n", pcb->pid);
-            }
-        }
 
-    else
-        {
-        strcpy(pcb->state, "RUNNING");
-        m->locked = 1;
-        m->owner_id = pcb->pid;
-        printf("Mutex ownership acquired by process %d\n", pcb->pid);
+void semWait(Mutex* m, PCB* pcb) {
+    if (m->value > 0) {
+        m->value--;
         }
-
+    else {
+        pcb->state = BLOCKED;
+        enqueue(&m->blockedQueue, pcb);
+        }
     }
 
-void semSignal(mutex* m, PCB* pcb)
-    {
-    if (m->locked)
-        {
-        if (m->owner_id != pcb->pid)
-            {
-            printf("Process %d does not own the mutex\n", pcb->pid);
-            return;
-            }
-        m->locked = 0;
-        m->owner_id = -1;
-        strcpy(pcb->state, "READY");
-        printf("Mutex ownership released by process %d\n", pcb->pid);
-        int next_pid = dequeue(m->blocked_queue, &(m->front), &(m->rear));
-        if (next_pid != -1)
-            {
-            strcpy(pcb->state, "READY");
-            m->owner_id = next_pid;
-            m->locked = 1;
-            printf("Mutex ownership transferred to process %d\n", next_pid);
-            }
+void semSignal(Mutex* m) {
+    if (!isQueueEmpty(&m->blockedQueue)) {
+        PCB* pcb = dequeue(&m->blockedQueue);
+        pcb->state = READY;
+        enqueue(&readyQueue, pcb);
         }
-    else
-        {
-
+    else {
+        m->value++;
         }
-
     }
 
 // Function to execute an instruction
@@ -252,32 +201,32 @@ void execute_instruction(char* instruction, PCB* pcb)
     if (strcmp(command, "assign") == 0)
         {
         assign(arg1, arg2, arg3, pcb);
-        strcpy(pcb->state, "READY");
+        pcb->state = READY;
         }
     else if (strcmp(command, "print") == 0)
         {
         print(arg1, pcb);
-        strcpy(pcb->state, "READY");
+        pcb->state = READY;
         }
     else if (strcmp(command, "printFromTo") == 0)
         {
         print_from_to(arg1, arg2, pcb);
-        strcpy(pcb->state, "READY");
+        pcb->state = READY;
         }
     else if (strcmp(command, "writeFile") == 0)
         {
         write_file(arg1, arg2, pcb);
-        strcpy(pcb->state, "READY");
+        pcb->state = READY;
         }
     else if (strcmp(command, "semWait") == 0)
         {
-        mutex* m = chooseMutex(arg1);
+        Mutex* m = chooseMutex(arg1);
         semWait(m, pcb);
         }
     else if (strcmp(command, "semSignal") == 0)
         {
-        mutex* m = chooseMutex(arg1);
-        semSignal(m, pcb);
+        Mutex* m = chooseMutex(arg1);
+        semSignal(m);
         }
     else
         {

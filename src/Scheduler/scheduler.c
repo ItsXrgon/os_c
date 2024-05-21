@@ -8,16 +8,18 @@
 
 extern Memory memory;
 extern int current_time;
-extern int ready_queue[10];
-extern int front, rear;
+extern Queue readyQueue;
+extern int time_quantum;
+extern PCB processTable[MAX_PROCESSES];
+
 
 void update_PCB(PCB* pcb) {
     if (pcb == NULL) {
         printf("Error: Process not found\n");
         return;
         }
-    if (strcmp(pcb->state, "DEAD") != 0 || strcmp(pcb->state, "BLOCKED") != 0) {
-        enqueue(&(pcb->pid), ready_queue, &front, &rear);
+    if (pcb->state == READY || pcb->state == RUNNING) {
+        enqueue(&readyQueue, pcb);
         }
     }
 
@@ -30,28 +32,24 @@ void execute_program(PCB* pcb)
         return;
         }
 
-    if (strcmp(pcb->state, "DEAD") == 0 || strcmp(pcb->state, "BLOCKED") == 0)
+    if (pcb->state == TERMINATED || pcb->state == BLOCKED)
         {
         return;
         }
     // Check if the program has finished execution
-    if (pcb->counter >= (pcb->upper_bound - pcb->lower_bound))
+    if (pcb->counter >= pcb->upper_bound)
         {
-        strcpy(pcb->state, "DEAD");
+        pcb->state = TERMINATED;
+        return;
         }
 
-    // Execute only one instruction per call
-    if (pcb->counter < pcb->upper_bound - pcb->lower_bound)
-        {
-        int instruction_index = pcb->lower_bound + pcb->counter;
-        if (memory.memory_blocks[instruction_index].name[0] != '\0')
-            {
-            char instruction[100];
-            strcpy(instruction, memory.memory_blocks[instruction_index].data);
-            printf("Executing instruction: %s\n", instruction);
-            execute_instruction(instruction, pcb);
-            pcb->counter++;
-            }
+    int instruction_index = pcb->lower_bound + pcb->counter;
+    if (memory.memory_blocks[instruction_index].name[0] != '\0') {
+        char instruction[100];
+        strcpy(instruction, memory.memory_blocks[instruction_index].data);
+        printf("Executing instruction: %s\n", instruction);
+        execute_instruction(instruction, pcb);
+        pcb->counter++;
         }
 
 
@@ -60,75 +58,65 @@ void execute_program(PCB* pcb)
     }
 
 // Function to add arriving processes to the ready queue
-void add_arriving_processes(PCB processes[], int num_processes)
+void add_arriving_processes()
     {
-    for (int i = 0; i < num_processes; i++)
+    for (int i = 0; i < MAX_PROCESSES; i++)
         {
-        if (strcmp(processes[i].state, "READY") == 0 && processes[i].arrival_time == current_time)
+        if (processTable[i].state == NEW && processTable[i].arrival_time == current_time)
             {
-            LoadProgram(processes[i].filename, processes + i);
-            enqueue(&(processes[i].pid), ready_queue, &front, &rear);
-            printf("Process %d has arrived\n", processes[i].pid);
+            LoadProgram(processTable[i].filename, processTable + i);
+            enqueue(&readyQueue, processTable + i);
+            processTable[i].state = RUNNING;
+            printf("Process %d has arrived\n", processTable[i].pid);
             }
         }
     }
+void updatePCB(PCB* pcb) {
+    pcb->counter++;
+    }
 
-// Function to run the scheduler
-void run_scheduler(PCB processes[], int num_processes)
-    {
-    int processes_remaining = num_processes;
-
-    while (1)
-        {
-        printf("\nTime: %d\n", current_time);
-        add_arriving_processes(processes, num_processes);
-        int pid = -1;
-        if (isEmpty(&front, &rear))
-            {
-            printf("No processes in the ready queue\n");
-            current_time++;
-            continue;
+int All_Terminated() {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (processTable[i].state != TERMINATED) {
+            return 0;
             }
-        else
-            {
-            pid = dequeue(ready_queue, &front, &rear);
-            }
+        }
+    return 1;
+    }
 
-
-        PCB* process = &processes[pid - 1];
-
-        if (strcmp(process->state, "DEAD") == 0)
-            {
-            printf("Process %d has completed execution\n", process->pid);
-            update_PCB(process);
-            continue;
-            }
-
-        if (strcmp(process->state, "BLOCKED") == 0)
-            {
-            printf("Process %d is blocked\n", process->pid);
-            update_PCB(process);
-            continue;
-            }
-
-
-        if (strcmp(process->state, "READY") == 0 || strcmp(process->state, "RUNNING") == 0)
-            {
-            strcpy(process->state, "RUNNING");
-            printf("\nExecuting process %d\n", process->pid);
-            execute_program(process);
-            }
-
-        update_PCB(process);
-
-        int all_dead = 1;
-        for (int i = 0; i < num_processes; i++)
-            {
-            if (strcmp(processes[i].state, "DEAD") != 0)
-                {
-                all_dead = 0;
-                break;
+void schedule() {
+    PCB* currentProcess = NULL;
+    int timeSlice = 0;
+    printf("Starting scheduling\n");
+    while (All_Terminated() == 0 || !isQueueEmpty(&readyQueue)) {
+        add_arriving_processes();
+        if (currentProcess == NULL || currentProcess->state != RUNNING) {
+            if (!isQueueEmpty(&readyQueue)) {
+                currentProcess = dequeue(&readyQueue);
+                currentProcess->state = RUNNING;
+                timeSlice = 0;
+                printf("Process %d is now RUNNING\n", currentProcess->pid);
                 }
+            }
+
+        if (currentProcess != NULL) {
+            execute_program(currentProcess);
+            updatePCB(currentProcess);
+            timeSlice++;
+
+            if (timeSlice >= time_quantum) {
+                currentProcess->state = READY;
+                enqueue(&readyQueue, currentProcess);
+                printf("Process %d is now READY\n", currentProcess->pid);
+                currentProcess = NULL;
+                }
+
+            if (currentProcess != NULL && currentProcess->counter >= (currentProcess->upper_bound - currentProcess->lower_bound)) {
+                currentProcess->state = TERMINATED;
+                printf("Process %d is now TERMINATED\n", currentProcess->pid);
+                currentProcess = NULL;
+                }
+
             }
 
         current_time++;

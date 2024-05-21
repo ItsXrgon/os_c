@@ -14,32 +14,59 @@
 int current_time = 0;
 int time_quantum;
 
-int ready_queue[10];
-int front = -1, rear = -1;
+PCB processTable[MAX_PROCESSES];
+Queue readyQueue;
+Mutex userInput;
+Mutex userOutput;
+Mutex file;
+
+// Function to intialize process table 
+void initialize_process_table()
+    {
+    for (int i = 0; i < NUM_PROCESSES; i++)
+        {
+        processTable[i].pid = i + 1;
+        processTable[i].state = NEW;
+        processTable[i].counter = 0;
+        processTable[i].lower_bound = -1;
+        processTable[i].upper_bound = -1;
+        processTable[i].arrival_time = 0;
+        char filename[100];
+        sprintf(filename, "/home/youssef/GUC/OS/M2/os_c/src/Program_%d.txt", i + 1);
+        strcpy(processTable[i].filename, filename);
+        }
+    }
+
 // Main function
 int main()
     {
     // Initialize memory
     initialize_memory();
-    initialize_mutex();
 
+    // Initialize mutex
+    initMutex(&userInput);
+    initMutex(&userOutput);
+    initMutex(&file);
 
+    // Initialize process table
+    initialize_process_table();
 
-    PCB processes[NUM_PROCESSES] = {
-        {1, "READY", 0, 0, 0, 0, "/home/youssef/GUC/OS/M2/os_c/src/Program_1.txt"},
-        {2, "READY", 0, 0, 0, 0, "/home/youssef/GUC/OS/M2/os_c/src/Program_2.txt"},
-        {3, "READY", 0, 0, 0, 0, "/home/youssef/GUC/OS/M2/os_c/src/Program_3.txt"} };
+    // Initialize ready queue
+    initQueue(&readyQueue);
+
+    // Get time quantum
 
     printf("Enter the time quantum: ");
     scanf("%d", &time_quantum);
 
+    // Get arrival time for each process
     for (int i = 0; i < NUM_PROCESSES; i++)
         {
         printf("Enter arrival time for process %d: ", i + 1);
-        scanf("%d", &((processes + i)->arrival_time));
+        scanf("%d", &processTable[i].arrival_time);
         }
 
-    run_scheduler(processes, NUM_PROCESSES);
+    schedule(processTable, NUM_PROCESSES);
 
     print_memory();
 
