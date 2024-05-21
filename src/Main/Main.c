@@ -36,6 +36,19 @@ void initialize_process_table()
         strcpy(processTable[i].filename, filename);
         }
     }
+void print_PCB() {
+    for (int i = 0; i < NUM_PROCESSES; i++) {
+        printf("PID: %d\n", processTable[i].pid);
+        printf("State: %d\n", processTable[i].state);
+        printf("Counter: %d\n", processTable[i].counter);
+        printf("Lower Bound: %d\n", processTable[i].lower_bound);
+        printf("Upper Bound: %d\n", processTable[i].upper_bound);
+        printf("Arrival Time: %d\n", processTable[i].arrival_time);
+        printf("Filename: %s\n", processTable[i].filename);
+        printf("\n");
+        }
+
+    }
 
 // Main function
 int main()

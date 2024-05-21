@@ -32,17 +32,6 @@ void execute_program(PCB* pcb)
         return;
         }
 
-    if (pcb->state == TERMINATED || pcb->state == BLOCKED)
-        {
-        return;
-        }
-    // Check if the program has finished execution
-    if (pcb->counter >= pcb->upper_bound)
-        {
-        pcb->state = TERMINATED;
-        return;
-        }
-
     int instruction_index = pcb->lower_bound + pcb->counter;
     if (memory.memory_blocks[instruction_index].name[0] != '\0') {
         char instruction[100];
@@ -66,7 +55,7 @@ void add_arriving_processes()
             {
             LoadProgram(processTable[i].filename, processTable + i);
             enqueue(&readyQueue, processTable + i);
-            processTable[i].state = RUNNING;
+            processTable[i].state = READY;
             printf("Process %d has arrived\n", processTable[i].pid);
             }
         }
@@ -81,6 +70,7 @@ int All_Terminated() {
             return 0;
             }
         }
+    printf("All processes have terminated\n");
     return 1;
     }
 
@@ -89,8 +79,9 @@ void schedule() {
     int timeSlice = 0;
     printf("Starting scheduling\n");
     while (All_Terminated() == 0 || !isQueueEmpty(&readyQueue)) {
+        printf("Current time: %d\n \n", current_time);
         add_arriving_processes();
-        if (currentProcess == NULL || currentProcess->state != RUNNING) {
+        if (currentProcess == NULL || currentProcess->state != READY) {
             if (!isQueueEmpty(&readyQueue)) {
                 currentProcess = dequeue(&readyQueue);
                 currentProcess->state = RUNNING;
@@ -100,6 +91,7 @@ void schedule() {
             }
 
         if (currentProcess != NULL) {
+            currentProcess->state = RUNNING;
             execute_program(currentProcess);
             updatePCB(currentProcess);
             timeSlice++;
