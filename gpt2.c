@@ -49,75 +49,87 @@ int current_time = 0;
 int time_quantum;
 
 int ready_queue[QUEUE_SIZE];
-int front_ready = 0, rear_ready = 0;
+int front_ready = -1, rear_ready = -1;
 
-int blocked_queue[QUEUE_SIZE];
-int front_blocked = 0, rear_blocked = 0;
+// Function to check if the ready queue is full
+int isReadyQueueFull() {
+    return (rear_ready == QUEUE_SIZE - 1 && front_ready == 0) || (rear_ready + 1 == front_ready);
+    }
+
+// Function to check if the ready queue is empty
+int isReadyQueueEmpty() {
+    return front_ready == -1;
+    }
 
 // Function to enqueue a process in the ready queue
-void enqueue_ready(int pid)
-    {
-    if ((rear_ready + 1) % QUEUE_SIZE == front_ready)
-        {
+void enqueue_ready(int pid) {
+    if (isReadyQueueFull()) {
         printf("Ready queue is full\n");
         return;
         }
-    if (front_ready == -1)
+    if (front_ready == -1) {
         front_ready = 0;
+        }
     rear_ready = (rear_ready + 1) % QUEUE_SIZE;
     ready_queue[rear_ready] = pid;
+    printf("Process %d is added to ready queue\n", pid);
     }
+
 // Function to dequeue a process from the ready queue
-int dequeue_ready()
-    {
-    if (front_ready == -1)
-        {
+int dequeue_ready() {
+    if (isReadyQueueEmpty()) {
         printf("Ready queue is empty\n");
         return -1;
         }
     int pid = ready_queue[front_ready];
-    if (front_ready == rear_ready)
-        {
+    if (front_ready == rear_ready) {
         front_ready = rear_ready = -1;
         }
-    else
-        {
+    else {
         front_ready = (front_ready + 1) % QUEUE_SIZE;
         }
+    printf("Process %d is removed from ready queue\n", pid);
     return pid;
     }
 
+// Function to check if the blocked queue is full
+int isBlockedQueueFull(mutex m) {
+    return (m.rear_blocked == QUEUE_SIZE - 1 && m.front_blocked == 0) || (m.rear_blocked + 1 == m.front_blocked);
+    }
+
+// Function to check if the blocked queue is empty
+int isBlockedQueueEmpty(mutex m) {
+    return m.front_blocked == -1;
+    }
+
 // Function to enqueue a process in the blocked queue
-void enqueue_blocked(int pid, mutex mutex)
-    {
-    if ((mutex.rear_blocked + 1) % QUEUE_SIZE == mutex.front_blocked)
-        {
+void enqueue_blocked(int pid, mutex m) {
+    if (isBlockedQueueFull(m)) {
         printf("Blocked queue is full\n");
         return;
         }
-    if (mutex.front_blocked == -1)
-        mutex.front_blocked = 0;
-    mutex.rear_blocked = (mutex.rear_blocked + 1) % QUEUE_SIZE;
-    mutex.blocked_queue[rear_blocked] = pid;
+    if (m.front_blocked == -1) {
+        m.front_blocked = 0;
+        }
+    m.rear_blocked = (m.rear_blocked + 1) % QUEUE_SIZE;
+    m.blocked_queue[m.rear_blocked] = pid;
+    printf("Process %d is added to blocked queue\n", pid);
     }
 
 // Function to dequeue a process from the blocked queue
-int dequeue_blocked(mutex mutex)
-    {
-    if (mutex.front_blocked == -1)
-        {
+int dequeue_blocked(mutex m) {
+    if (isBlockedQueueEmpty(m)) {
         printf("Blocked queue is empty\n");
         return -1;
         }
-    int pid = mutex.blocked_queue[mutex.front_blocked];
-    if (mutex.front_blocked == mutex.rear_blocked)
-        {
-        mutex.front_blocked = mutex.rear_blocked = -1;
+    int pid = m.blocked_queue[m.front_blocked];
+    if (m.front_blocked == m.rear_blocked) {
+        m.front_blocked = m.rear_blocked = -1;
         }
-    else
-        {
-        mutex.front_blocked = (mutex.front_blocked + 1) % QUEUE_SIZE;
+    else {
+        m.front_blocked = (m.front_blocked + 1) % QUEUE_SIZE;
         }
+    printf("Process %d is removed from blocked queue\n", pid);
     return pid;
     }
 
@@ -304,14 +316,13 @@ void semWait(char* arg1, PCB* pcb) {
         else {
             printf("Process %d is waiting for userInput\n", pcb->pid);
             strcpy(pcb->state, "BLOCKED");
-
+            enqueue_blocked(pcb->pid, userInputMutex);
             }
         }
     else if (strcmp(arg1, "userOutput") == 0)
         {
         if (userOutputMutex.locked == 0)
             {
-
             userOutputMutex.owner_id = pcb->pid;
             userOutputMutex.locked = 1;
             strcpy(pcb->state, "RUNNING");
@@ -346,7 +357,6 @@ void semSignal(char* arg1, PCB* pcb) {
         userInputMutex.owner_id = 0;
         userInputMutex.locked = 0;
         enqueue_ready(dequeue_blocked(userInputMutex));
-
         }
     else if (strcmp(arg1, "userOutput") == 0)
         {
@@ -464,10 +474,7 @@ void execute_program(PCB* pcb)
         printf("Error: Process not found\n");
         return;
         }
-    if (strcmp(pcb->state, "DEAD") == 0 || strcmp(pcb->state, "BLOCKED") == 0)
-        {
-        return;
-        }
+
 
 
     char instruction[100];
@@ -475,6 +482,8 @@ void execute_program(PCB* pcb)
     for (int i = pcb->lower_bound + pcb->counter; i < pcb->upper_bound; i++)
         {
         if (time_spent >= time_quantum)
+            break;
+        if (strcmp(pcb->state, "DEAD") == 0 || strcmp(pcb->state, "BLOCKED") == 0)
             break;
         strcpy(instruction, memory.memory_blocks[i].data);
         printf("Executing instruction: %s\n", instruction);
@@ -535,20 +544,22 @@ void run_scheduler(PCB processes[], int num_processes)
 
         PCB* process = &processes[pid - 1];
 
+        if (strcmp(process->state, "DEAD") == 0 || strcmp(process->state, "BLOCKED") == 0)
+            {
+            printf("Process %d is %s\n", process->pid, process->state);
+            continue;
+            }
+
         if (strcmp(process->state, "READY") == 0 || strcmp(process->state, "RUNNING") == 0) {
             strcpy(process->state, "RUNNING");
             printf("\nExecuting process %d\n", process->pid);
             execute_program(process);
             }
 
-        if (strcmp(process->state, "BLOCKED") == 0) {
-            printf("Process %d is blocked\n", process->pid);
+        if (strcmp(process->state, "DEAD") != 0 && strcmp(process->state, "BLOCKED") != 0)
+            {
+            enqueue_ready(process->pid);
             }
-        if (strcmp(process->state, "DEAD") == 0) {
-            printf("Process %d is dead\n", process->pid);
-            }
-
-
         current_time++;
         }
     }
